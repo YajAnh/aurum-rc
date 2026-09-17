@@ -24,10 +24,10 @@ data class History(
 data class HistoryEntry(
     val timestamp: String,
     val directory: String,
-    val moves: List<Map<String, JsonElement>>
+    val moves: MutableList<Map<String, JsonElement>>
 )
 
-fun recordHistory(selectedDirectory: Path, moves: List<Map<String, JsonElement>>){
+fun recordHistory(selectedDirectory: Path, moves: MutableList<Map<String, JsonElement>>){
 
     val json = Json {
         prettyPrint = true
