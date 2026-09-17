@@ -1,20 +1,18 @@
 package sorting
 
 
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import services.recordHistory
 import java.nio.file.Path
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import kotlin.collections.iterator
-import kotlin.io.iterator
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
-import kotlin.io.resolve
-import kotlin.text.contains
-import kotlin.text.iterator
-import kotlin.toString
 
 
-fun handleDuplicates(destination: Path, filePath: Path): Path? {
+
+fun handleDuplicates(destination: Path, filePath: Path) {
     var destinationFile = destination.resolve(filePath.fileName)
     val duplicateMode = config.configurations["duplicate-mode"]
 
@@ -27,10 +25,10 @@ fun handleDuplicates(destination: Path, filePath: Path): Path? {
             }
 
             Files.move(filePath, destinationFile)
-            return destinationFile
+            return
         }
         "skip" -> {
-            return null
+            return
         }
         "overwrite" -> {
             Files.move(
@@ -40,11 +38,11 @@ fun handleDuplicates(destination: Path, filePath: Path): Path? {
             )
 
             println("Duplicate detected: replacing $destinationFile")
-            return destinationFile
+            return
         }
         else -> {
             Files.move(filePath, destinationFile)
-            return destinationFile
+            return
         }
     }
 }
@@ -75,7 +73,7 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
     }
 
     println("Press enter to continue: "); readln()
-    val moves = mutableListOf<Map<String, Any>>()
+    val moves = mutableListOf<Map<String, JsonElement>>()
 
     Files.list(selectedDirectory).use { stream ->
         for (filePath in stream) {
@@ -90,7 +88,7 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
             try {
                 val destination = selectedDirectory.resolve(matchingFolder)
                 Files.createDirectories(destination)
-                val newPath = handleDuplicates(destination, filePath)
+                handleDuplicates(destination, filePath)
 
                 println("Moved: ${filePath.fileName} -> $destination\n")
 
@@ -102,6 +100,7 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
                     )
                 )
 
+                recordHistory(selectedDirectory, moves)
             } catch (e: Exception) {
                 println("Failed to process ${filePath.fileName}: ${e.message}")
             }
