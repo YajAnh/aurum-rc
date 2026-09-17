@@ -11,13 +11,17 @@ import com.github.ajalt.clikt.parameters.types.boolean
 import rules.sortingRules
 import config.loadConfig
 import config.loadDirectories
+import config.loadHistory
 import config.saveConfig
 import config.saveDirectories
+import config.saveHistory
 import sorting.ensureFolderDestination
 import sorting.sortingLogic
 import java.nio.file.Path
 import java.nio.file.Files
 import kotlin.io.path.isDirectory
+import kotlinx.serialization.json.*
+import services.clearHistory
 
 class App : CliktCommand(name = "aurum-rc") {
     init {
@@ -28,7 +32,7 @@ class App : CliktCommand(name = "aurum-rc") {
     }
 
     override fun run() {
-
+        loadHistory()
         loadDirectories()
         loadConfig()
     }
@@ -201,19 +205,44 @@ class History : CliktCommand(name = "h", help = "Manage app.History") {
 
 class Clear : CliktCommand(name = "c", help = "app.Clear history") {
     override fun run() {
-        TODO("Not yet implemented")
+        clearHistory()
+        saveHistory()
     }
 }
 
 class Remove : CliktCommand(name = "r", help = "app.Remove a session in history") {
     override fun run() {
-        TODO("Not yet implemented")
+
+        println("Remove by Index > "); val result = runCatching {
+            val index = readln().toInt()
+            val history = loadHistory()
+
+            if (history.sessions.isNotEmpty()) {
+                println("Current sessions (0-${history.sessions.lastIndex}):")
+                for ((i, session) in history.sessions.withIndex()) {
+                    println("   $i. ${session.timestamp} - ${session.directory}")
+                }
+                println()
+
+                services.removeHistorySession(index)
+                saveHistory()
+            } else {
+                println("No history sessions to remove")
+            }
+        }
+        result.onSuccess { println("Success") }
+            .onFailure { println("Failed to remove, Try again") }
     }
 }
 
 class ShowHistory : CliktCommand(name = "sh", help = "Shows full history") {
     override fun run() {
-        TODO("Not yet implemented")
+        val history = loadHistory()
+
+        println("Current sessions (0-${history.sessions.lastIndex}):")
+        for ((i, session) in history.sessions.withIndex()) {
+            println("   $i. ${session.timestamp} - ${session.directory}")
+
     }
 }
 

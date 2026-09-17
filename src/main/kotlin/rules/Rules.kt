@@ -1,6 +1,5 @@
 package rules
 
-
 import java.nio.file.Path
 
 val homeDirectory: String = System.getProperty("user.home")

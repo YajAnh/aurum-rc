@@ -56,4 +56,44 @@ fun recordHistory(selectedDirectory: Path, moves: List<Map<String, JsonElement>>
     )
 }
 
+fun clearHistory() {
+    Files.createDirectories(historyPath.parent)
+
+    Files.writeString(
+        historyPath,
+        Json.encodeToString(services.History())
+    )
+}
+
+fun removeHistorySession(index: Int) {
+    val json = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+    }
+
+    if (!Files.exists(historyPath)) return
+
+    val contents = Files.readString(historyPath)
+    val history = json.decodeFromString<History>(contents)
+
+    // Check if index is valid
+    if (index >= 0 && index < history.sessions.size) {
+        history.sessions.removeAt(index)
+
+        Files.createDirectories(historyPath.parent)
+        Files.writeString(
+            historyPath,
+            json.encodeToString(history)
+        )
+        println("Session at index $index removed successfully")
+    } else {
+        println("Invalid index: $index. History has ${history.sessions.size} sessions (0-${history.sessions.size - 1})")
+    }
+}
+
+
+
+
+
+
 

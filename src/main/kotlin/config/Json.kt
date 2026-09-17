@@ -4,6 +4,11 @@ import kotlin.io.path.Path
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import services.History
+import services.historyPath
+import java.nio.file.Files
+import javax.xml.namespace.QName
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -63,12 +68,20 @@ fun loadHistory(): History {
         return History()
     }
 
-    return json.decodeToString(
+    val json = Json {
+        ignoreUnknownKeys = true
+    }
+
+    return json.decodeFromString(
         Files.readString(historyPath)
     )
 }
 
 fun saveHistory() {
+    val json = Json {
+        prettyPrint = true
+    }
+
     Files.createDirectories(historyPath.parent)
 
     Files.writeString(
