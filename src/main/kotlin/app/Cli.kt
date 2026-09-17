@@ -1,0 +1,323 @@
+package app
+
+import rules.homeDirectory
+
+
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.types.boolean
+
+import rules.sortingRules
+import config.loadConfig
+import config.loadDirectories
+import config.saveConfig
+import config.saveDirectories
+import sorting.ensureFolderDestination
+import sorting.sortingLogic
+import java.nio.file.Path
+import java.nio.file.Files
+import kotlin.io.path.isDirectory
+
+class App : CliktCommand(name = "aurum-rc") {
+    init {
+        subcommands(
+            SortType(),
+            Settings()
+        )
+    }
+
+    override fun run() {
+
+        loadDirectories()
+        loadConfig()
+    }
+}
+
+class SortType : CliktCommand(name = "st", help = "Sort types") {
+    init {
+        subcommands(
+            Automatic()
+        )
+    }
+
+    override fun run() = Unit
+}
+
+class Automatic : CliktCommand(name = "auto", help = "Sorts files by extensions (limited)") {
+    init {
+        subcommands(
+            Standard(),
+            Show(),
+            Custom(),
+        )
+    }
+    override fun run() = Unit
+}
+
+class Standard : CliktCommand(name = "std", help = "Sorts files on Windows's pinned folders") {
+    private val folder by argument()
+
+    override fun run() {
+        val folders = rules.standardFolders(homeDirectory)
+
+        if (folder.replaceFirstChar { it.titlecase() } !in folders){
+            println("Invalid folder: $folder. Available folders: ")
+
+            for ((index, folderName) in folders.keys.withIndex()) {
+                println("$index. :: $folderName")
+            }
+            return
+        }
+
+        val selectedDirectory = Path.of(folders.getValue(folder))
+        ensureFolderDestination(selectedDirectory, sortingRules)
+        sortingLogic(selectedDirectory, sortingRules)
+    }
+
+}
+
+class Show : CliktCommand(name = "show", help = "Shows Directories added by user") {
+    override fun run() {
+        val folders = rules.standardFolders(homeDirectory)
+
+        for ((index, folderName) in folders.keys.withIndex()) {
+            println("$index. :: $folderName")
+        }
+    }
+}
+
+class Custom : CliktCommand(name = "cus", help = "Sorts files by either manually inserted Path or a user pinned Path") {
+    init {
+        subcommands(
+            ManualInput(),
+            UsePinned()
+        )
+    }
+    override fun run() = Unit
+}
+
+class UsePinned : CliktCommand(name = "up", help = "Sorts files using user pinned Paths") {
+    private val name by argument()
+
+    override fun run() {
+
+        if (name !in config.addedDirectories.keys) {
+            println("No directories added...")
+            println("Available pinned directories:")
+
+            if (config.addedDirectories.isNotEmpty()) {
+                for ((index, entry) in config.addedDirectories.entries.withIndex()) {
+                    val dirKey = entry.key
+                    val dirVal = entry.value
+
+                    print("$index. ~ $dirKey ~ $dirVal")
+                }
+
+                return
+            }
+        }
+        val selectedDirectory = Path.of(
+            config.addedDirectories[name] ?: throw IllegalArgumentException("Directory '$name' not found"))
+        ensureFolderDestination(selectedDirectory, sortingRules)
+        sortingLogic(selectedDirectory, sortingRules)
+    }
+}
+
+class ManualInput : CliktCommand(name = "mi", help = "Sorts files using a manually inserted Path") {
+    private val manualInput by argument()
+
+    override fun run() {
+        val selectedDirectory: Path = Path.of(manualInput)
+
+        if (!Files.isDirectory(selectedDirectory)) {
+            println("$selectedDirectory not found and may not exist. Try again")
+            return
+        }
+        ensureFolderDestination(selectedDirectory, sortingRules)
+        sortingLogic(selectedDirectory, sortingRules)
+    }
+
+}
+
+class Settings : CliktCommand(name = "stg", help = "app.Settings and configurations") {
+    init {
+        subcommands(
+            Misc(),
+            Mod(),
+        )
+    }
+    override fun run() = Unit
+}
+
+class Misc : CliktCommand(help = "miscellaneous") {
+    init {
+        subcommands(
+            Undo()
+        )
+    }
+    override fun run() = Unit
+}
+
+class Undo : CliktCommand(help = "app.Undo sort sessions") {
+    override fun run() {
+        TODO("Not yet implemented")
+    }
+}
+
+class Mod : CliktCommand(help = "None") {
+    init {
+        subcommands(
+            RemoveSessionAfterRedo(),
+            History(),
+            DuplicateHandler(),
+            Configuration()
+        )
+    }
+    override fun run() = Unit
+}
+
+class RemoveSessionAfterRedo : CliktCommand(name = "rsar", help = "Remove session after a redo session") {
+    private val enabled by argument().boolean()
+
+    override fun run() {
+        config.configurations["remove session after redo"] = enabled.toString().replaceFirstChar { it.lowercase() }
+        saveConfig()
+    }
+
+
+}
+
+class History : CliktCommand(name = "h", help = "Manage app.History") {
+    init {
+        subcommands(
+            Clear(),
+            Remove(),
+            ShowHistory()
+        )
+    }
+    override fun run() = Unit
+}
+
+class Clear : CliktCommand(name = "c", help = "app.Clear history") {
+    override fun run() {
+        TODO("Not yet implemented")
+    }
+}
+
+class Remove : CliktCommand(name = "r", help = "app.Remove a session in history") {
+    override fun run() {
+        TODO("Not yet implemented")
+    }
+}
+
+class ShowHistory : CliktCommand(name = "sh", help = "Shows full history") {
+    override fun run() {
+        TODO("Not yet implemented")
+    }
+}
+
+class DuplicateHandler : CliktCommand(name = "dh", help = "Duplicate handlers"){
+    init {
+        subcommands(
+            Rename(),
+            Skip(),
+            Overwrite()
+        )
+    }
+    override fun run() = Unit
+}
+
+class Rename : CliktCommand(name = "r", help = "Renames duplicate files") {
+    override fun run() {
+        config.configurations["duplicate mode"] = "rename"
+        println("Duplicate Mode set to rename")
+    }
+}
+
+class Skip : CliktCommand(name = "s", help = "Skips duplicate files") {
+    override fun run() {
+        config.configurations["duplicate mode"] = "skip"
+        println("Duplicate Mode set to skip")
+    }
+}
+
+class Overwrite : CliktCommand(name = "ow", help = "overwrites duplicate files") {
+    override fun run() {
+        config.configurations["duplicate mode"] = "overwrite"
+        println("Duplicate Mode set to overwrite")
+    }
+}
+
+class Configuration : CliktCommand(name = "config", help = "app.Configuration handlers") {
+    init {
+        subcommands(
+            ShowDirs(),
+            DirectoryHandlers()
+        )
+    }
+    override fun run() = Unit
+}
+
+class ShowDirs : CliktCommand(name = "sd", help = "app.Show user added directories") {
+    override fun run() {
+        loadDirectories()
+
+        if (config.addedDirectories.isNotEmpty()) {
+            for ((index, entry) in config.addedDirectories.entries.withIndex()) {
+                val dirKey = entry.key
+                val dirVal = entry.value
+
+                println("$index. ~ $dirKey ~ $dirVal")
+            }
+        } else {
+            println("No added directories")
+        }
+    }
+}
+
+class DirectoryHandlers : CliktCommand(name = "dirh", help = "Handle user added directories") {
+    init {
+        subcommands(
+            Add(),
+            RemoveDir()
+        )
+    }
+    override fun run() = Unit
+}
+
+class Add : CliktCommand("app.Add Directory") {
+    private val pathName by argument()
+    private val pathDirectory by argument()
+
+    override fun run() {
+        if (!Path.of(pathDirectory).isDirectory()){
+            println("$pathDirectory is not a valid directory")
+            return
+        }
+
+        config.addedDirectories[pathName] = pathDirectory
+
+        if (pathName !in config.addedDirectories || pathDirectory !in config.addedDirectories) {
+            println("$pathName or $pathDirectory, not added properly. Try again")
+            return
+        }
+        println("Added ~ $pathName ~ ($pathDirectory)")
+        saveDirectories()
+    }
+}
+
+class RemoveDir : CliktCommand(name = "remove", help = "app.Add Directory") {
+    private val targetDirectory by argument()
+
+    override fun run() {
+        if (targetDirectory !in config.addedDirectories) {
+            println("$targetDirectory is not in added directories...")
+            return
+        }
+        println("removing $targetDirectory...")
+        config.addedDirectories.remove(targetDirectory)
+        saveDirectories()
+    }
+}
+
