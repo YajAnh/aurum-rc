@@ -57,3 +57,22 @@ fun saveDirectories(){
         json.encodeToString(config.addedDirectories)
     )
 }
+
+fun loadHistory(): History {
+    if (!Files.exists(historyPath)) {
+        return History()
+    }
+
+    return json.decodeToString(
+        Files.readString(historyPath)
+    )
+}
+
+fun saveHistory() {
+    Files.createDirectories(historyPath.parent)
+
+    Files.writeString(
+        historyPath,
+        Json.encodeToString(services.History)
+    )
+}
