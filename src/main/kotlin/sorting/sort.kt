@@ -96,9 +96,9 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
 
                 moves.add(
                     mapOf(
-                        "original path" to filePath.toString(),
-                        "new_path" to destination.resolve(filePath.fileName).toString(),
-                        "undo" to false,
+                        "original path" to JsonPrimitive(filePath.toString()),
+                        "new path" to JsonPrimitive(destination.resolve(filePath.fileName).toString()),
+                        "undo" to JsonPrimitive(false),
                     )
                 )
 
