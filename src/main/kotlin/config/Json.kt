@@ -24,7 +24,7 @@ data class Directories(
 
 fun loadConfig() {
     val json = Json.decodeFromString<Map<String, String>>(
-        Path("src/main/kotlin/json/Config.json").readText()
+        Path("Config.json").readText()
     )
 
     config.configurations.putAll(json)
