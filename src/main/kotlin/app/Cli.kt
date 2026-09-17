@@ -22,6 +22,8 @@ import java.nio.file.Files
 import kotlin.io.path.isDirectory
 import kotlinx.serialization.json.*
 import services.clearHistory
+import app.Undo.ModSet
+import services.undoLogic
 
 class App : CliktCommand(name = "aurum-rc") {
     init {
@@ -148,7 +150,7 @@ class Settings : CliktCommand(name = "stg", help = "app.Settings and configurati
     init {
         subcommands(
             Misc(),
-            Mod(),
+            ModSet(),
         )
     }
     override fun run() = Unit
@@ -165,11 +167,23 @@ class Misc : CliktCommand(help = "miscellaneous") {
 
 class Undo : CliktCommand(help = "app.Undo sort sessions") {
     override fun run() {
-        TODO("Not yet implemented")
+        val history = loadHistory()
+
+        println("Current sessions (0-${history.sessions.lastIndex}):")
+        for ((i, session) in history.sessions.withIndex()) {
+            println("   $i. ${session.timestamp} - ${session.directory}")
+
+
+            println("Select the respective index: "); val input = readln().toIntOrNull()
+            if (input == null) {
+                println("Input is not Int"); return}
+            else {undoLogic(input)}
+
+
     }
 }
 
-class Mod : CliktCommand(help = "None") {
+class ModSet : CliktCommand(name = "mod", help = "None") {
     init {
         subcommands(
             RemoveSessionAfterRedo(),
