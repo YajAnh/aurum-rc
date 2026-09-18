@@ -2,12 +2,11 @@ package services
 
 import config.loadConfig
 import config.loadHistory
-import kotlinx.serialization.json.*
+import config.saveHistory
 import sorting.handleDuplicates
 import java.nio.file.Path
 import java.nio.file.Files
-import kotlin.io.path.createDirectories
-import kotlin.io.path.exists
+
 
 fun undoLogic(input: Int) {
     val history = loadHistory()
@@ -38,6 +37,8 @@ fun undoLogic(input: Int) {
     }
     loadConfig()
     if (config.configurations.getValue("remove session after redo").toBoolean()) {
-        TODO()
+        history.sessions.removeAt(input - 1)
     }
+
+    saveHistory()
 }
