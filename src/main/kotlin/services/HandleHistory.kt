@@ -85,9 +85,9 @@ fun removeHistorySession(index: Int) {
             historyPath,
             json.encodeToString(history)
         )
-        println("Session at index $index removed successfully")
+        echo("Session at index $index removed successfully")
     } else {
-        println("Invalid index: $index. History has ${history.sessions.size} sessions (0-${history.sessions.size - 1})")
+        echo("Invalid index: $index. History has ${history.sessions.size} sessions (0-${history.sessions.size - 1})")
     }
 }
 

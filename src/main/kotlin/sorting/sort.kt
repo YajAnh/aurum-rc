@@ -37,7 +37,7 @@ fun handleDuplicates(destination: Path, filePath: Path) {
                 StandardCopyOption.REPLACE_EXISTING
             )
 
-            println("Duplicate detected: replacing $destinationFile")
+            echo("Duplicate detected: replacing $destinationFile")
             return
         }
         else -> {
@@ -53,26 +53,26 @@ fun ensureFolderDestination(selectedDirectory: Path,sortingRules: Map<String, Li
         .filter { !Files.isDirectory(it) }
 
     if (missingDirectories.isEmpty()) {
-        println("Directories are missing!! (note: these are folders in which the sorted files are gonna be moved)")
+        echo("Directories are missing!! (note: these are folders in which the sorted files are gonna be moved)")
         for (missingDirectory in missingDirectories) {
-            println("Creating... $missingDirectory")
+            echo("Creating... $missingDirectory")
 
             val result = runCatching {
                 Files.createDirectories(missingDirectory)
             }
             result.onSuccess { continue }
-                .onFailure { println("Error: Check the folder if any file have the exact name to  ${missingDirectory.fileName}") }
+                .onFailure { echo("Error: Check the folder if any file have the exact name to  ${missingDirectory.fileName}") }
         }
     }
 }
 
 fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>>) {
-    println("Files in the selected folder: ${selectedDirectory.fileName} will be moved into category subfolders: ")
+    echo("Files in the selected folder: ${selectedDirectory.fileName} will be moved into category subfolders: ")
     for (folderName in sortingRules.keys) {
-        println("~ $folderName")
+        echo("~ $folderName")
     }
 
-    println("Press enter to continue: "); readln()
+    echo("Press enter to continue: "); readln()
     val moves = mutableListOf<Map<String, JsonElement>>()
 
     Files.list(selectedDirectory).use { stream ->
@@ -90,7 +90,7 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
                 Files.createDirectories(destination)
                 handleDuplicates(destination, filePath)
 
-                println("Moved: ${filePath.fileName} -> $destination\n")
+                echo("Moved: ${filePath.fileName} -> $destination\n")
 
                 moves.add(
                     mapOf(
@@ -102,7 +102,7 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
 
                 recordHistory(selectedDirectory, moves)
             } catch (e: Exception) {
-                println("Failed to process ${filePath.fileName}: ${e.message}")
+                echo("Failed to process ${filePath.fileName}: ${e.message}")
             }
         }
     }

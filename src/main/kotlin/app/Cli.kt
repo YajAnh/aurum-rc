@@ -20,10 +20,10 @@ import sorting.sortingLogic
 import java.nio.file.Path
 import java.nio.file.Files
 import kotlin.io.path.isDirectory
-import kotlinx.serialization.json.*
 import services.clearHistory
-import app.Undo.ModSet
 import services.undoLogic
+
+
 
 class App : CliktCommand(name = "aurum-rc") {
     init {
@@ -37,6 +37,7 @@ class App : CliktCommand(name = "aurum-rc") {
         loadHistory()
         loadDirectories()
         loadConfig()
+
     }
 }
 
@@ -68,10 +69,10 @@ class Standard : CliktCommand(name = "std", help = "Sorts files on Windows's pin
         val folders = rules.standardFolders(homeDirectory)
 
         if (folder.replaceFirstChar { it.titlecase() } !in folders){
-            println("Invalid folder: $folder. Available folders: ")
+            echo("Invalid folder: $folder. Available folders: ")
 
             for ((index, folderName) in folders.keys.withIndex()) {
-                println("$index. :: $folderName")
+                echo("$index. :: $folderName")
             }
             return
         }
@@ -88,7 +89,7 @@ class Show : CliktCommand(name = "show", help = "Shows Directories added by user
         val folders = rules.standardFolders(homeDirectory)
 
         for ((index, folderName) in folders.keys.withIndex()) {
-            println("$index. :: $folderName")
+            echo("$index. :: $folderName")
         }
     }
 }
@@ -109,8 +110,8 @@ class UsePinned : CliktCommand(name = "up", help = "Sorts files using user pinne
     override fun run() {
 
         if (name !in config.addedDirectories.keys) {
-            println("No directories added...")
-            println("Available pinned directories:")
+            echo("No directories added...")
+            echo("Available pinned directories:")
 
             if (config.addedDirectories.isNotEmpty()) {
                 for ((index, entry) in config.addedDirectories.entries.withIndex()) {
@@ -137,7 +138,7 @@ class ManualInput : CliktCommand(name = "mi", help = "Sorts files using a manual
         val selectedDirectory: Path = Path.of(manualInput)
 
         if (!Files.isDirectory(selectedDirectory)) {
-            println("$selectedDirectory not found and may not exist. Try again")
+            echo("$selectedDirectory not found and may not exist. Try again")
             return
         }
         ensureFolderDestination(selectedDirectory, sortingRules)
@@ -169,17 +170,20 @@ class Undo : CliktCommand(help = "app.Undo sort sessions") {
     override fun run() {
         val history = loadHistory()
 
-        println("Current sessions (0-${history.sessions.lastIndex}):")
+        echo("Current sessions (0-${history.sessions.lastIndex}):")
         for ((i, session) in history.sessions.withIndex()) {
-            println("   $i. ${session.timestamp} - ${session.directory}")
+            echo("   $i. ${session.timestamp} - ${session.directory}")
 
 
-            println("Select the respective index: "); val input = readln().toIntOrNull()
+            echo("Select the respective index: ")
+            val input = readln().toIntOrNull()
             if (input == null) {
-                println("Input is not Int"); return}
-            else {undoLogic(input)}
+                echo("Input is not Int"); return
+            } else {
+                undoLogic(input)
+            }
 
-
+        }
     }
 }
 
@@ -192,6 +196,7 @@ class ModSet : CliktCommand(name = "mod", help = "None") {
             Configuration()
         )
     }
+
     override fun run() = Unit
 }
 
@@ -227,25 +232,25 @@ class Clear : CliktCommand(name = "c", help = "app.Clear history") {
 class Remove : CliktCommand(name = "r", help = "app.Remove a session in history") {
     override fun run() {
 
-        println("Remove by Index > "); val result = runCatching {
+        echo("Remove by Index > "); val result = runCatching {
             val index = readln().toInt()
             val history = loadHistory()
 
             if (history.sessions.isNotEmpty()) {
-                println("Current sessions (0-${history.sessions.lastIndex}):")
+                echo("Current sessions (0-${history.sessions.lastIndex}):")
                 for ((i, session) in history.sessions.withIndex()) {
-                    println("   $i. ${session.timestamp} - ${session.directory}")
+                    echo("   $i. ${session.timestamp} - ${session.directory}")
                 }
-                println()
+                echo()
 
                 services.removeHistorySession(index)
                 saveHistory()
             } else {
-                println("No history sessions to remove")
+                echo("No history sessions to remove")
             }
         }
-        result.onSuccess { println("Success") }
-            .onFailure { println("Failed to remove, Try again") }
+        result.onSuccess { echo("Success") }
+            .onFailure { echo("Failed to remove, Try again") }
     }
 }
 
@@ -253,10 +258,11 @@ class ShowHistory : CliktCommand(name = "sh", help = "Shows full history") {
     override fun run() {
         val history = loadHistory()
 
-        println("Current sessions (0-${history.sessions.lastIndex}):")
+        echo("Current sessions (0-${history.sessions.lastIndex}):")
         for ((i, session) in history.sessions.withIndex()) {
-            println("   $i. ${session.timestamp} - ${session.directory}")
+            echo("   $i. ${session.timestamp} - ${session.directory}")
 
+        }
     }
 }
 
@@ -274,25 +280,25 @@ class DuplicateHandler : CliktCommand(name = "dh", help = "Duplicate handlers"){
 class Rename : CliktCommand(name = "r", help = "Renames duplicate files") {
     override fun run() {
         config.configurations["duplicate mode"] = "rename"
-        println("Duplicate Mode set to rename")
+        echo("Duplicate Mode set to rename")
     }
 }
 
 class Skip : CliktCommand(name = "s", help = "Skips duplicate files") {
     override fun run() {
         config.configurations["duplicate mode"] = "skip"
-        println("Duplicate Mode set to skip")
+        echo("Duplicate Mode set to skip")
     }
 }
 
 class Overwrite : CliktCommand(name = "ow", help = "overwrites duplicate files") {
     override fun run() {
         config.configurations["duplicate mode"] = "overwrite"
-        println("Duplicate Mode set to overwrite")
+        echo("Duplicate Mode set to overwrite")
     }
 }
 
-class Configuration : CliktCommand(name = "config", help = "app.Configuration handlers") {
+class Configuration : CliktCommand(name = "config", help = "Configuration handlers") {
     init {
         subcommands(
             ShowDirs(),
@@ -311,10 +317,10 @@ class ShowDirs : CliktCommand(name = "sd", help = "app.Show user added directori
                 val dirKey = entry.key
                 val dirVal = entry.value
 
-                println("$index. ~ $dirKey ~ $dirVal")
+                echo("$index. ~ $dirKey ~ $dirVal")
             }
         } else {
-            println("No added directories")
+            echo("No added directories")
         }
     }
 }
@@ -335,17 +341,17 @@ class Add : CliktCommand("app.Add Directory") {
 
     override fun run() {
         if (!Path.of(pathDirectory).isDirectory()){
-            println("$pathDirectory is not a valid directory")
+            echo("$pathDirectory is not a valid directory")
             return
         }
 
         config.addedDirectories[pathName] = pathDirectory
 
         if (pathName !in config.addedDirectories || pathDirectory !in config.addedDirectories) {
-            println("$pathName or $pathDirectory, not added properly. Try again")
+            echo("$pathName or $pathDirectory, not added properly. Try again")
             return
         }
-        println("Added ~ $pathName ~ ($pathDirectory)")
+        echo("Added ~ $pathName ~ ($pathDirectory)")
         saveDirectories()
     }
 }
@@ -355,10 +361,10 @@ class RemoveDir : CliktCommand(name = "remove", help = "app.Add Directory") {
 
     override fun run() {
         if (targetDirectory !in config.addedDirectories) {
-            println("$targetDirectory is not in added directories...")
+            echo("$targetDirectory is not in added directories...")
             return
         }
-        println("removing $targetDirectory...")
+        echo("removing $targetDirectory...")
         config.addedDirectories.remove(targetDirectory)
         saveDirectories()
     }

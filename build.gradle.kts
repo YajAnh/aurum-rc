@@ -15,6 +15,7 @@ dependencies {
     implementation("com.github.ajalt.clikt:clikt:4.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+    implementation("ch.qos.logback:logback-classic:1.5.16")
 }
 
 kotlin {

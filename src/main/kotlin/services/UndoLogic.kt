@@ -11,7 +11,7 @@ import java.nio.file.Files
 fun undoLogic(input: Int) {
     val history = loadHistory()
     if (input < 1 || input > history.sessions.size) {
-        println("Index error"); return
+        echo("Index error"); return
     }
 
     val selectedSession = history.sessions[input - 1]
@@ -28,12 +28,12 @@ fun undoLogic(input: Int) {
         Files.createDirectories(targetParentDirectory)
 
         if (!Files.exists(source)) {
-            println("Skipped: file no longer exists -> $source")
+            echo("Skipped: file no longer exists -> $source")
             continue
         }
 
         handleDuplicates(targetParentDirectory, source)
-        println("Undo: ${source.fileName} Moved back -> $targetParentDirectory")
+        echo("Undo: ${source.fileName} Moved back -> $targetParentDirectory")
     }
     loadConfig()
     if (config.configurations.getValue("remove session after redo").toBoolean()) {
