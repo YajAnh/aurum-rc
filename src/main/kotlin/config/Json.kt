@@ -4,11 +4,9 @@ import kotlin.io.path.Path
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import services.History
 import services.historyPath
 import java.nio.file.Files
-import javax.xml.namespace.QName
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -18,18 +16,20 @@ data class Config(
     val duplicateMode: String,
 
     @SerialName("remove session after redo")
-    val removeSessionAfterRedo: Boolean
+    val removeSessionAfterRedo: String
 )
 
-@Serializable
-data class Directories(
-    val directories: String
-)
 
 
 fun loadConfig() {
     val json = Json.decodeFromString<Map<String, String>>(
-        Path("Config.json").readText()
+        Path("")
+            .resolve("src")
+            .resolve("main")
+            .resolve("kotlin")
+            .resolve("json")
+            .resolve("Config.json")
+            .readText()
     )
 
     config.configurations.putAll(json)
@@ -40,14 +40,25 @@ fun saveConfig() {
         prettyPrint = true
     }
 
-    Path("Config.json").writeText(
+    Path("").toAbsolutePath()
+        .resolve("src")
+        .resolve("main")
+        .resolve("kotlin")
+        .resolve("json")
+        .resolve("Config.json").writeText(
         json.encodeToString(config.configurations)
     )
 }
 
 fun loadDirectories(){
     val json = Json.decodeFromString<Map<String, String>>(
-        Path("src/main/kotlin/json/Directories.json").readText()
+        Path("").toAbsolutePath()
+            .resolve("src")
+            .resolve("main")
+            .resolve("kotlin")
+            .resolve("json")
+            .resolve("Directories.json")
+            .readText()
     )
 
     config.addedDirectories.putAll(json)
@@ -58,7 +69,13 @@ fun saveDirectories(){
         prettyPrint = true
     }
 
-    Path("Directories.json").writeText(
+    Path("").toAbsolutePath()
+        .resolve("src")
+        .resolve("main")
+        .resolve("kotlin")
+        .resolve("json")
+        .resolve("Directories.json")
+        .writeText(
         json.encodeToString(config.addedDirectories)
     )
 }
@@ -69,10 +86,11 @@ fun loadHistory(): History {
     }
 
     val json = Json {
+        prettyPrint = true
         ignoreUnknownKeys = true
     }
 
-    return json.decodeFromString(
+    return json.decodeFromString<History>(
         Files.readString(historyPath)
     )
 }
@@ -80,12 +98,13 @@ fun loadHistory(): History {
 fun saveHistory() {
     val json = Json {
         prettyPrint = true
+        ignoreUnknownKeys = true
     }
 
     Files.createDirectories(historyPath.parent)
 
     Files.writeString(
         historyPath,
-        Json.encodeToString(services.History)
+        Json.encodeToString(services.History())
     )
 }

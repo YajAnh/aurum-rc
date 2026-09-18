@@ -6,13 +6,17 @@ import config.saveHistory
 import sorting.handleDuplicates
 import java.nio.file.Path
 import java.nio.file.Files
+import org.slf4j.LoggerFactory
 
+private val logger = LoggerFactory.getLogger("UndoLogic")
 
 fun undoLogic(input: Int) {
     val history = loadHistory()
     if (input < 1 || input > history.sessions.size) {
-        echo("Index error"); return
+        logger.info("Index error"); return
     }
+
+
 
     val selectedSession = history.sessions[input - 1]
     val directory = Path.of(selectedSession.directory)
@@ -28,12 +32,12 @@ fun undoLogic(input: Int) {
         Files.createDirectories(targetParentDirectory)
 
         if (!Files.exists(source)) {
-            echo("Skipped: file no longer exists -> $source")
+            logger.warn("Skipped: file no longer exists -> $source")
             continue
         }
 
         handleDuplicates(targetParentDirectory, source)
-        echo("Undo: ${source.fileName} Moved back -> $targetParentDirectory")
+        logger.info("Undo: ${source.fileName} Moved back -> $targetParentDirectory")
     }
     loadConfig()
     if (config.configurations.getValue("remove session after redo").toBoolean()) {

@@ -84,12 +84,12 @@ class Standard : CliktCommand(name = "std", help = "Sorts files on Windows's pin
 
 }
 
-class Show : CliktCommand(name = "show", help = "Shows Directories added by user") {
+class Show : CliktCommand(name = "show", help = "Shows Directories") {
     override fun run() {
         val folders = rules.standardFolders(homeDirectory)
 
         for ((index, folderName) in folders.keys.withIndex()) {
-            echo("$index. :: $folderName")
+            echo("${index + 1}. :: $folderName")
         }
     }
 }
@@ -347,10 +347,9 @@ class Add : CliktCommand("app.Add Directory") {
 
         config.addedDirectories[pathName] = pathDirectory
 
-        if (pathName !in config.addedDirectories || pathDirectory !in config.addedDirectories) {
-            echo("$pathName or $pathDirectory, not added properly. Try again")
-            return
-        }
+        if (pathName !in config.addedDirectories) {echo("$pathName did not get added properly"); return}
+        if (pathDirectory !in config.addedDirectories) {echo("$pathDirectory did not get added properly"); return}
+
         echo("Added ~ $pathName ~ ($pathDirectory)")
         saveDirectories()
     }

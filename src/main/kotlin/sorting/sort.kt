@@ -9,6 +9,9 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("Sorting")
 
 
 
@@ -37,7 +40,7 @@ fun handleDuplicates(destination: Path, filePath: Path) {
                 StandardCopyOption.REPLACE_EXISTING
             )
 
-            echo("Duplicate detected: replacing $destinationFile")
+            logger.info("Duplicate detected: replacing $destinationFile")
             return
         }
         else -> {
@@ -53,26 +56,26 @@ fun ensureFolderDestination(selectedDirectory: Path,sortingRules: Map<String, Li
         .filter { !Files.isDirectory(it) }
 
     if (missingDirectories.isEmpty()) {
-        echo("Directories are missing!! (note: these are folders in which the sorted files are gonna be moved)")
+        logger.info("Directories are missing!! (note: these are folders in which the sorted files are gonna be moved)")
         for (missingDirectory in missingDirectories) {
-            echo("Creating... $missingDirectory")
+            logger.info("Creating... $missingDirectory")
 
             val result = runCatching {
                 Files.createDirectories(missingDirectory)
             }
             result.onSuccess { continue }
-                .onFailure { echo("Error: Check the folder if any file have the exact name to  ${missingDirectory.fileName}") }
+                .onFailure { logger.error("Error: Check the folder if any file have the exact name to  ${missingDirectory.fileName}") }
         }
     }
 }
 
 fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>>) {
-    echo("Files in the selected folder: ${selectedDirectory.fileName} will be moved into category subfolders: ")
+    logger.info("Files in the selected folder: ${selectedDirectory.fileName} will be moved into category subfolders: ")
     for (folderName in sortingRules.keys) {
-        echo("~ $folderName")
+        logger.info("~ $folderName")
     }
 
-    echo("Press enter to continue: "); readln()
+    print("Press enter to continue: "); readln()
     val moves = mutableListOf<Map<String, JsonElement>>()
 
     Files.list(selectedDirectory).use { stream ->
@@ -90,7 +93,7 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
                 Files.createDirectories(destination)
                 handleDuplicates(destination, filePath)
 
-                echo("Moved: ${filePath.fileName} -> $destination\n")
+                logger.info("Moved: ${filePath.fileName} -> $destination")
 
                 moves.add(
                     mapOf(
@@ -102,7 +105,7 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
 
                 recordHistory(selectedDirectory, moves)
             } catch (e: Exception) {
-                echo("Failed to process ${filePath.fileName}: ${e.message}")
+                logger.error("Failed to process ${filePath.fileName}: ${e.message}")
             }
         }
     }

@@ -6,6 +6,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import java.nio.file.Files
 import java.nio.file.Path
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("HandleHistory")
 
 
 val historyPath: Path = Path.of("").toAbsolutePath()
@@ -85,9 +88,9 @@ fun removeHistorySession(index: Int) {
             historyPath,
             json.encodeToString(history)
         )
-        echo("Session at index $index removed successfully")
+        logger.info("Session at index $index removed successfully")
     } else {
-        echo("Invalid index: $index. History has ${history.sessions.size} sessions (0-${history.sessions.size - 1})")
+        logger.warn("Invalid index: $index. History has ${history.sessions.size} sessions (0-${history.sessions.size - 1})")
     }
 }
 
