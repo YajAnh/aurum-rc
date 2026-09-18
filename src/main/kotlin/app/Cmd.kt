@@ -16,7 +16,7 @@ fun cmdMain() {
         if (input.isBlank()) continue
         if (input.trim() == "exit" || input.trim() == "quit") break
 
-        val args = input.trim().split(Regex("\\s+"))
+        val args = parseArgs(input)
         val result = runCatching {
             App().main(args)
         }
@@ -25,4 +25,41 @@ fun cmdMain() {
             logger.warn("Error: $errorMessage")
             }
     }
+}
+
+fun parseArgs(input: String): List<String> {
+    val args = mutableListOf<String>()
+    val current = StringBuilder()
+
+    var inQuotes = false
+    var quoteChar = '\u0000'
+
+    for (char in input.trim()) {
+        if (char == '"' || char == '\'') {
+            if (!inQuotes) {
+                inQuotes = true
+                quoteChar = char
+            } else if (char == quoteChar) {
+                inQuotes = false
+            } else {
+                current.append(char)
+            }
+            continue
+        }
+
+        if (char.isWhitespace() && !inQuotes) {
+            if (current.isNotEmpty()) {
+                args.add(current.toString())
+                current.clear()
+            }
+        } else {
+            current.append(char)
+        }
+    }
+
+    if (current.isNotEmpty()) {
+        args.add(current.toString())
+    }
+
+    return args
 }

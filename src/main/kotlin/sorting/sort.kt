@@ -17,7 +17,7 @@ private val logger = LoggerFactory.getLogger("Sorting")
 
 fun handleDuplicates(destination: Path, filePath: Path) {
     var destinationFile = destination.resolve(filePath.fileName)
-    val duplicateMode = config.configurations["duplicate-mode"]
+    val duplicateMode = config.configurations["duplicate mode"]
 
     when (duplicateMode) {
         "rename" -> {
@@ -44,7 +44,7 @@ fun handleDuplicates(destination: Path, filePath: Path) {
             return
         }
         else -> {
-            Files.move(filePath, destinationFile)
+            logger.warn("SKIPPED: unknown error")
             return
         }
     }
@@ -55,7 +55,7 @@ fun ensureFolderDestination(selectedDirectory: Path,sortingRules: Map<String, Li
         .map { folderName -> selectedDirectory.resolve(folderName) }
         .filter { !Files.isDirectory(it) }
 
-    if (missingDirectories.isEmpty()) {
+    if (missingDirectories.isNotEmpty()) {
         logger.info("Directories are missing!! (note: these are folders in which the sorted files are gonna be moved)")
         for (missingDirectory in missingDirectories) {
             logger.info("Creating... $missingDirectory")
@@ -70,7 +70,7 @@ fun ensureFolderDestination(selectedDirectory: Path,sortingRules: Map<String, Li
 }
 
 fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>>) {
-    logger.info("Files in the selected folder: ${selectedDirectory.fileName} will be moved into category subfolders: ")
+    println("Files in the selected folder: ${selectedDirectory.fileName} will be moved into category subfolders: ")
     for (folderName in sortingRules.keys) {
         logger.info("~ $folderName")
     }

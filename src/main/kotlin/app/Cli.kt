@@ -72,7 +72,7 @@ class Standard : CliktCommand(name = "std", help = "Sorts files on Windows's pin
             echo("Invalid folder: $folder. Available folders: ")
 
             for ((index, folderName) in folders.keys.withIndex()) {
-                echo("$index. :: $folderName")
+                echo("${index + 1}. :: $folderName")
             }
             return
         }
@@ -118,7 +118,7 @@ class UsePinned : CliktCommand(name = "up", help = "Sorts files using user pinne
                     val dirKey = entry.key
                     val dirVal = entry.value
 
-                    print("$index. ~ $dirKey ~ $dirVal")
+                    print("${index + 1}. ~ $dirKey ~ $dirVal")
                 }
 
                 return
@@ -157,7 +157,7 @@ class Settings : CliktCommand(name = "stg", help = "app.Settings and configurati
     override fun run() = Unit
 }
 
-class Misc : CliktCommand(help = "miscellaneous") {
+class Misc : CliktCommand(name = "misc", help = "miscellaneous") {
     init {
         subcommands(
             Undo()
@@ -166,13 +166,13 @@ class Misc : CliktCommand(help = "miscellaneous") {
     override fun run() = Unit
 }
 
-class Undo : CliktCommand(help = "app.Undo sort sessions") {
+class Undo : CliktCommand(help = "Undo sort sessions") {
     override fun run() {
         val history = loadHistory()
 
         echo("Current sessions (0-${history.sessions.lastIndex}):")
         for ((i, session) in history.sessions.withIndex()) {
-            echo("   $i. ${session.timestamp} - ${session.directory}")
+            echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
 
 
             echo("Select the respective index: ")
@@ -239,7 +239,7 @@ class Remove : CliktCommand(name = "r", help = "app.Remove a session in history"
             if (history.sessions.isNotEmpty()) {
                 echo("Current sessions (0-${history.sessions.lastIndex}):")
                 for ((i, session) in history.sessions.withIndex()) {
-                    echo("   $i. ${session.timestamp} - ${session.directory}")
+                    echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
                 }
                 echo()
 
@@ -258,9 +258,14 @@ class ShowHistory : CliktCommand(name = "sh", help = "Shows full history") {
     override fun run() {
         val history = loadHistory()
 
+        if (history.sessions.isEmpty()) {
+            echo("Sessions are empty!!")
+            return
+        }
+
         echo("Current sessions (0-${history.sessions.lastIndex}):")
         for ((i, session) in history.sessions.withIndex()) {
-            echo("   $i. ${session.timestamp} - ${session.directory}")
+            echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
 
         }
     }
@@ -281,6 +286,7 @@ class Rename : CliktCommand(name = "r", help = "Renames duplicate files") {
     override fun run() {
         config.configurations["duplicate mode"] = "rename"
         echo("Duplicate Mode set to rename")
+        saveConfig()
     }
 }
 
@@ -288,6 +294,7 @@ class Skip : CliktCommand(name = "s", help = "Skips duplicate files") {
     override fun run() {
         config.configurations["duplicate mode"] = "skip"
         echo("Duplicate Mode set to skip")
+        saveConfig()
     }
 }
 
@@ -295,6 +302,7 @@ class Overwrite : CliktCommand(name = "ow", help = "overwrites duplicate files")
     override fun run() {
         config.configurations["duplicate mode"] = "overwrite"
         echo("Duplicate Mode set to overwrite")
+        saveConfig()
     }
 }
 
@@ -317,7 +325,7 @@ class ShowDirs : CliktCommand(name = "sd", help = "app.Show user added directori
                 val dirKey = entry.key
                 val dirVal = entry.value
 
-                echo("$index. ~ $dirKey ~ $dirVal")
+                echo("${index + 1}. ~ $dirKey ~ $dirVal")
             }
         } else {
             echo("No added directories")
@@ -347,8 +355,7 @@ class Add : CliktCommand("app.Add Directory") {
 
         config.addedDirectories[pathName] = pathDirectory
 
-        if (pathName !in config.addedDirectories) {echo("$pathName did not get added properly"); return}
-        if (pathDirectory !in config.addedDirectories) {echo("$pathDirectory did not get added properly"); return}
+        if (config.addedDirectories[pathName] != pathDirectory) {echo("$pathName did not get added properly"); return}
 
         echo("Added ~ $pathName ~ ($pathDirectory)")
         saveDirectories()

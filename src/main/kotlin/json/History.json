@@ -1,3 +1,15 @@
 {
-  "sessions": []
+    "sessions": [
+        {
+            "timestamp": "2026-09-18T14:53:40.459086400Z",
+            "directory": "C:\\Users\\hp\\Documents",
+            "moves": [
+                {
+                    "original path": "C:\\Users\\hp\\Documents\\TARP.xlsx",
+                    "new path": "C:\\Users\\hp\\Documents\\SortedDocuments\\TARP.xlsx",
+                    "undo": false
+                }
+            ]
+        }
+    ]
 }
