@@ -103,11 +103,13 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
                     )
                 )
 
-                recordHistory(selectedDirectory, moves)
+
             } catch (e: Exception) {
                 logger.error("Failed to process ${filePath.fileName}: ${e.message}")
             }
         }
+
+        recordHistory(selectedDirectory, moves)
     }
 }
 
