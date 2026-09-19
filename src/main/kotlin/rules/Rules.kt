@@ -4,22 +4,6 @@ import java.nio.file.Path
 
 val homeDirectory: String = System.getProperty("user.home")
 
-
-val configPath: Path = Path.of("").toAbsolutePath()
-    .resolve("src")
-    .resolve("main")
-    .resolve("kotlin")
-    .resolve("json")
-    .resolve("Config.json")
-
-val directoriesPath: Path = Path.of("").toAbsolutePath()
-    .resolve("src")
-    .resolve("main")
-    .resolve("kotlin")
-    .resolve("json")
-    .resolve("Directories.json")
-
-
 val sortingRules = mapOf(
     "SortedImages" to listOf("jpg", "jfif", "png", "webp", "gif", "webm"),
     "SortedDocuments" to listOf("pdf", "docx", "xlsx", "txt", "csv", "html", "htm", "ppt", "pptx", "md"),

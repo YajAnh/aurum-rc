@@ -32,7 +32,8 @@ fun loadConfig() {
             .readText()
     )
 
-    config.configurations.putAll(json)
+     Config.configurations.putAll(json)
+
 }
 
 fun saveConfig() {
