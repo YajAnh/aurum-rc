@@ -10,42 +10,40 @@ import java.nio.file.StandardCopyOption
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import org.slf4j.LoggerFactory
+import kotlin.io.path.nameWithoutExtension
 
 private val logger = LoggerFactory.getLogger("Sorting")
 
 
 
-fun handleDuplicates(destination: Path, filePath: Path) {
-    var destinationFile = destination.resolve(filePath.fileName)
+fun handleDuplicates(destination: Path, filePath: Path): Path? {
     val duplicateMode = config.configurations["duplicate mode"]
+    val destinationFile = destination.resolve(filePath.fileName)
 
-    when (duplicateMode) {
+    return when (duplicateMode) {
         "rename" -> {
             var counter = 1
-            while (Files.exists(destinationFile)) {
-                destinationFile = Path.of("$destination/${filePath.fileName} Duplicate (${counter})${filePath.extension}")
-                counter += 1
+            var target = destinationFile
+            while (Files.exists(target)) {
+                val newName = "${filePath.nameWithoutExtension} Duplicate ($counter).${filePath.extension}"
+                target = destination.resolve(newName)
+                counter++
             }
-
-            Files.move(filePath, destinationFile)
-            return
+            Files.move(filePath, target)
+            target
         }
         "skip" -> {
-            return
+            logger.info("Skipped duplicate: ${filePath.fileName}")
+            null
         }
         "overwrite" -> {
-            Files.move(
-                filePath,
-                destinationFile,
-                StandardCopyOption.REPLACE_EXISTING
-            )
-
+            Files.move(filePath, destinationFile, StandardCopyOption.REPLACE_EXISTING)
             logger.info("Duplicate detected: replacing $destinationFile")
-            return
+            destinationFile
         }
         else -> {
-            logger.warn("SKIPPED: unknown error")
-            return
+            logger.warn("Unknown duplicate mode: $duplicateMode — skipping ${filePath.fileName}")
+            null
         }
     }
 }
@@ -91,19 +89,17 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
             try {
                 val destination = selectedDirectory.resolve(matchingFolder)
                 Files.createDirectories(destination)
-                handleDuplicates(destination, filePath)
+                val finalPath = handleDuplicates(destination, filePath) ?: continue  // skipped → not recorded
 
-                logger.info("Moved: ${filePath.fileName} -> $destination")
+                logger.info("Moved: ${filePath.fileName} -> $finalPath")
 
                 moves.add(
                     mapOf(
                         "original path" to JsonPrimitive(filePath.toString()),
-                        "new path" to JsonPrimitive(destination.resolve(filePath.fileName).toString()),
+                        "new path" to JsonPrimitive(finalPath.toString()),  // ← real path, not assumed path
                         "undo" to JsonPrimitive(false),
                     )
                 )
-
-
             } catch (e: Exception) {
                 logger.error("Failed to process ${filePath.fileName}: ${e.message}")
             }

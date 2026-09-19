@@ -12,10 +12,7 @@ private val logger = LoggerFactory.getLogger("HandleHistory")
 
 
 val historyPath: Path = Path.of("").toAbsolutePath()
-    .resolve("src")
-    .resolve("main")
-    .resolve("kotlin")
-    .resolve("json")
+    .resolve("data")
     .resolve("History.json")
 
 @Serializable
@@ -64,7 +61,7 @@ fun clearHistory() {
 
     Files.writeString(
         historyPath,
-        Json.encodeToString(services.History())
+        Json.encodeToString(History())
     )
 }
 

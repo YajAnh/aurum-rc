@@ -3,44 +3,52 @@ package services
 import config.loadConfig
 import config.loadHistory
 import config.saveHistory
+import kotlinx.serialization.json.JsonPrimitive
 import sorting.handleDuplicates
 import java.nio.file.Path
 import java.nio.file.Files
 import org.slf4j.LoggerFactory
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 private val logger = LoggerFactory.getLogger("UndoLogic")
 
 fun undoLogic(input: Int) {
     val history = loadHistory()
     if (input < 1 || input > history.sessions.size) {
-        logger.info("Index error"); return
+        logger.warn("Invalid index: $input (valid: 1-${history.sessions.size})")
+        return
     }
-
-
 
     val selectedSession = history.sessions[input - 1]
     val directory = Path.of(selectedSession.directory)
 
     if (!Files.exists(directory)) {
-        print("$directory does not exist!!")
+        logger.warn("$directory no longer exists — cannot undo this session")
         return
     }
 
-    for (move in selectedSession.moves) {
-        val source = Path.of(move["new path"].toString()).parent
-        val targetParentDirectory = Path.of(move["original path"].toString()).parent
-        Files.createDirectories(targetParentDirectory)
+    val iterator = selectedSession.moves.listIterator()
+    for (move in iterator) {
+        val newPath = move["new path"]?.jsonPrimitive?.contentOrNull ?: continue
+        val originalPath = move["original path"]?.jsonPrimitive?.contentOrNull ?: continue
 
-        if (!Files.exists(source)) {
-            logger.warn("Skipped: file no longer exists -> $source")
+        val currentLocation = Path.of(newPath)
+        val original = Path.of(originalPath)
+
+        if (!Files.exists(currentLocation)) {
+            logger.warn("Skipped: file no longer exists -> $currentLocation")
             continue
         }
 
-        handleDuplicates(targetParentDirectory, source)
-        logger.info("Undo: ${source.fileName} Moved back -> $targetParentDirectory")
+        Files.createDirectories(original.parent)
+        handleDuplicates(original.parent, currentLocation)
+        iterator.set(move + ("undo" to JsonPrimitive(true)))
+        logger.info("Undo: ${original.fileName} <- $currentLocation")
     }
+
     loadConfig()
-    if (config.configurations.getValue("remove session after redo").toBoolean()) {
+    if (config.configurations["remove session after redo"]?.toBoolean() == true) {
         history.sessions.removeAt(input - 1)
     }
 

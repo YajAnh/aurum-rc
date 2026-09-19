@@ -63,21 +63,23 @@ class Automatic : CliktCommand(name = "auto", help = "Sorts files by extensions 
 }
 
 class Standard : CliktCommand(name = "std", help = "Sorts files on Windows's pinned folders") {
-    private val folder by argument()
+    private val folderInput by argument()
 
     override fun run() {
         val folders = rules.standardFolders(homeDirectory)
+        val normalizedFolderInput = folderInput .replaceFirstChar { it.titlecase() }
 
-        if (folder.replaceFirstChar { it.titlecase() } !in folders){
-            echo("Invalid folder: $folder. Available folders: ")
+        if (normalizedFolderInput !in folders){
+            echo("Invalid folder: $folderInput. Available folders: ")
 
             for ((index, folderName) in folders.keys.withIndex()) {
                 echo("${index + 1}. :: $folderName")
             }
+
             return
         }
 
-        val selectedDirectory = Path.of(folders.getValue(folder))
+        val selectedDirectory = Path.of(folders.getValue(folderInput))
         ensureFolderDestination(selectedDirectory, sortingRules)
         sortingLogic(selectedDirectory, sortingRules)
     }
@@ -119,15 +121,15 @@ class UsePinned : CliktCommand(name = "up", help = "Sorts files using user pinne
                     val dirVal = entry.value
 
                     print("${index + 1}. ~ $dirKey ~ $dirVal")
-                }
 
+                    val selectedDirectory = Path.of(
+                        config.addedDirectories[name] ?: throw IllegalArgumentException("Directory '$name' not found"))
+                    ensureFolderDestination(selectedDirectory, sortingRules)
+                    sortingLogic(selectedDirectory, sortingRules)
+                }
                 return
             }
         }
-        val selectedDirectory = Path.of(
-            config.addedDirectories[name] ?: throw IllegalArgumentException("Directory '$name' not found"))
-        ensureFolderDestination(selectedDirectory, sortingRules)
-        sortingLogic(selectedDirectory, sortingRules)
     }
 }
 
@@ -170,20 +172,24 @@ class Undo : CliktCommand(help = "Undo sort sessions") {
     override fun run() {
         val history = loadHistory()
 
-        echo("Current sessions (0-${history.sessions.lastIndex}):")
+        if (history.sessions.isEmpty()) {
+            echo("No sessions to undo"); return
+        }
+
+        echo("Current sessions (0 - ${history.sessions.size}):")
         for ((i, session) in history.sessions.withIndex()) {
             echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
-
+        }
 
             echo("Select the respective index: ")
-            val input = readln().toIntOrNull()
+            val input = readlnOrNull()
             if (input == null) {
                 echo("Input is not Int"); return
-            } else {
-                undoLogic(input)
             }
-
-        }
+            if (input.toInt() !in 1..history.sessions.size) {
+                echo("IndexError: Input is out the index range. Please pick a number from 1 to ${history.sessions.size}")
+            }
+            undoLogic(input = input.toInt())
     }
 }
 
@@ -244,7 +250,6 @@ class Remove : CliktCommand(name = "r", help = "app.Remove a session in history"
                 echo()
 
                 services.removeHistorySession(index)
-                saveHistory()
             } else {
                 echo("No history sessions to remove")
             }
