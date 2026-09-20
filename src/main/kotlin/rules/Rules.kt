@@ -4,7 +4,7 @@ import java.nio.file.Path
 
 val homeDirectory: String = System.getProperty("user.home")
 
-val sortingRules = mapOf(
+var sortingRules = mutableMapOf(
     "SortedImages" to listOf("jpg", "jfif", "png", "webp", "gif", "webm"),
     "SortedDocuments" to listOf("pdf", "docx", "xlsx", "txt", "csv", "html", "htm", "ppt", "pptx", "md"),
     "SortedExecutables" to listOf("exe", "iso", "so", "bat", "msi"),
