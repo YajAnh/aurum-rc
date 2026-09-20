@@ -6,6 +6,8 @@ import rules.homeDirectory
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.boolean
 
 import rules.sortingRules
@@ -22,7 +24,9 @@ import java.nio.file.Files
 import kotlin.io.path.isDirectory
 import services.clearHistory
 import services.undoLogic
-
+import services.undoLogicDryRun
+import sorting.ensureFolderDestinationDryRun
+import sorting.sortingDryRun
 
 
 class App : CliktCommand(name = "aurum-rc") {
@@ -64,10 +68,22 @@ class Automatic : CliktCommand(name = "auto", help = "Sorts files by extensions 
 
 class Standard : CliktCommand(name = "std", help = "Sorts files on Windows's pinned folders") {
     private val folderInput by argument()
+    private val dryRun by option(
+        "--dryrun",
+        help = "Shows what files gets moved, without moving"
+    ).flag()
 
     override fun run() {
         val folders = rules.standardFolders(homeDirectory)
         val normalizedFolderInput = folderInput .replaceFirstChar { it.titlecase() }
+
+        if (dryRun) {
+            echo("on Dry Run!!")
+            val selectedDirectory = Path.of(folders.getValue(folderInput))
+
+            ensureFolderDestinationDryRun(selectedDirectory, sortingRules)
+            sortingDryRun(selectedDirectory, sortingRules)
+        }
 
         if (normalizedFolderInput !in folders){
             echo("Invalid folder: $folderInput. Available folders: ")
@@ -107,37 +123,63 @@ class Custom : CliktCommand(name = "cus", help = "Sorts files by either manually
 }
 
 class UsePinned : CliktCommand(name = "up", help = "Sorts files using user pinned Paths") {
-    private val name by argument()
+    private val dryRun by option(
+        "--dryrun",
+        help = "Shows what files gets moved, without moving"
+    ).flag()
 
     override fun run() {
 
-        if (name !in config.addedDirectories.keys) {
+        if (config.addedDirectories.isEmpty()) {
             echo("No directories added...")
             echo("Available pinned directories:")
-
-            if (config.addedDirectories.isNotEmpty()) {
-                for ((index, entry) in config.addedDirectories.entries.withIndex()) {
-                    val dirKey = entry.key
-                    val dirVal = entry.value
-
-                    print("${index + 1}. ~ $dirKey ~ $dirVal")
-
-                    val selectedDirectory = Path.of(
-                        config.addedDirectories[name] ?: throw IllegalArgumentException("Directory '$name' not found"))
-                    ensureFolderDestination(selectedDirectory, sortingRules)
-                    sortingLogic(selectedDirectory, sortingRules)
-                }
-                return
-            }
         }
+
+        if (config.addedDirectories.isNotEmpty()) {
+            for ((index, entry) in config.addedDirectories.entries.withIndex()) {
+                val dirKey = entry.key
+                val dirVal = entry.value
+
+                print("${index + 1}. ~ $dirKey ~ $dirVal")
+
+
+            }
+            val input = readlnOrNull() ?: run{  echo("Input is Null"); return  }
+            val nameCapitalized = input.replaceFirstChar { it.titlecase() }
+
+            if (dryRun) {
+                echo("On Dry Run!!")
+
+                val selectedDirectory = Path.of(
+                    config.addedDirectories[nameCapitalized] ?: throw IllegalArgumentException("Directory '$nameCapitalized' not found"))
+                ensureFolderDestinationDryRun(selectedDirectory, sortingRules)
+                sortingDryRun(selectedDirectory, sortingRules)
+            }
+
+            val selectedDirectory = Path.of(
+                config.addedDirectories[nameCapitalized] ?: throw IllegalArgumentException("Directory '$nameCapitalized' not found"))
+            ensureFolderDestination(selectedDirectory, sortingRules)
+            sortingLogic(selectedDirectory, sortingRules)
+        }
+        return
     }
 }
 
 class ManualInput : CliktCommand(name = "mi", help = "Sorts files using a manually inserted Path") {
     private val manualInput by argument()
+    private val dryRun by option(
+        "--dryrun",
+        help = "Shows what files gets moved, without moving"
+    ).flag()
 
     override fun run() {
         val selectedDirectory: Path = Path.of(manualInput)
+        if (dryRun) {
+            echo("On Dry Run!!")
+
+            ensureFolderDestinationDryRun(selectedDirectory, sortingRules)
+            sortingDryRun(selectedDirectory, sortingRules)
+        }
 
         if (!Files.isDirectory(selectedDirectory)) {
             echo("$selectedDirectory not found and may not exist. Try again")
@@ -169,6 +211,11 @@ class Misc : CliktCommand(name = "misc", help = "miscellaneous") {
 }
 
 class Undo : CliktCommand(help = "Undo sort sessions") {
+    private val dryRun by option(
+        "--dryrun",
+        help = "Shows what files gets moved, without moving"
+    ).flag()
+
     override fun run() {
         val history = loadHistory()
 
@@ -182,14 +229,19 @@ class Undo : CliktCommand(help = "Undo sort sessions") {
         }
 
             echo("Select the respective index: ")
-            val input = readlnOrNull()
-            if (input == null) {
-                echo("Input is not Int"); return
+            val input = readlnOrNull()?.toIntOrNull()
+            if (dryRun) {
+                echo("On Dry Run!!")
+                undoLogicDryRun(input = input)
             }
-            if (input.toInt() !in 1..history.sessions.size) {
+
+            if (input == null) {
+                echo("Input is either empty or not a number"); return
+            }
+            if (input !in 1..history.sessions.size) {
                 echo("IndexError: Input is out the index range. Please pick a number from 1 to ${history.sessions.size}")
             }
-            undoLogic(input = input.toInt())
+            undoLogic(input = input)
     }
 }
 
@@ -199,7 +251,8 @@ class ModSet : CliktCommand(name = "mod", help = "None") {
             RemoveSessionAfterRedo(),
             History(),
             DuplicateHandler(),
-            Configuration()
+            Configuration(),
+            Rules()
         )
     }
 
@@ -259,8 +312,6 @@ class RemoveSessionAfterRedo : CliktCommand(name = "rsar", help = "Remove sessio
         config.configurations["remove session after redo"] = enabled.toString().replaceFirstChar { it.lowercase() }
         saveConfig()
     }
-
-
 }
 
 class History : CliktCommand(name = "h", help = "Manage app.History") {
@@ -284,17 +335,18 @@ class Clear : CliktCommand(name = "c", help = "app.Clear history") {
 class Remove : CliktCommand(name = "r", help = "app.Remove a session in history") {
     override fun run() {
 
-        echo("Remove by Index > "); val result = runCatching {
-            val index = readln().toInt()
+        val result = runCatching {
+
             val history = loadHistory()
 
             if (history.sessions.isNotEmpty()) {
-                echo("Current sessions (0-${history.sessions.lastIndex}):")
+                echo("Current sessions (0-${history.sessions.size}):")
                 for ((i, session) in history.sessions.withIndex()) {
                     echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
                 }
                 echo()
 
+                echo("Remove by Index > "); val index = readln().toInt()
                 services.removeHistorySession(index)
             } else {
                 echo("No history sessions to remove")
@@ -314,7 +366,7 @@ class ShowHistory : CliktCommand(name = "sh", help = "Shows full history") {
             return
         }
 
-        echo("Current sessions (0-${history.sessions.lastIndex}):")
+        echo("Current sessions (0-${history.sessions.size}):")
         for ((i, session) in history.sessions.withIndex()) {
             echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
 

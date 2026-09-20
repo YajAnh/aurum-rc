@@ -53,3 +53,27 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
     }
 }
 
+fun sortingDryRun(selectedDirectory: Path, sortingRules: Map<String, List<String>>) {
+    Files.list(selectedDirectory).use { stream ->
+        for (filePath in stream) {
+            if (!filePath.isRegularFile()) continue
+
+            val matchingFolder = sortingRules.entries
+                .firstOrNull { (_, extensions) -> filePath.extension.lowercase() in extensions }
+                ?.key
+
+            if (matchingFolder == null) continue
+
+            try {
+                val destination = selectedDirectory.resolve(matchingFolder)
+                Files.createDirectories(destination)
+                val finalPath = duplicatesDryRun(destination, filePath) ?: continue  // skipped → not recorded
+
+                logger.info("Preview: ${filePath.fileName} -> $finalPath")
+
+            } catch (e: Exception) {
+                logger.error("[Error Found]Failed to process ${filePath.fileName}: ${e.message}")
+            }
+        }
+    }
+}
