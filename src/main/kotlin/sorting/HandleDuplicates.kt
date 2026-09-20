@@ -63,7 +63,7 @@ fun duplicatesDryRun(destination: Path, filePath: Path): Path? {
             destinationFile
         }
         else -> {
-            logger.warn("Unknown duplicate mode: $duplicateMode — skipping ${filePath.fileName}")
+            logger.warn("Unknown duplicate mode: $duplicateMode — to be skipped ${filePath.fileName}")
             null
         }
     }

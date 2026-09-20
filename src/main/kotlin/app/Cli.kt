@@ -41,9 +41,11 @@ class App : CliktCommand(name = "aurum-rc") {
     }
 
     override fun run() {
-        loadHistory()
-        loadDirectories()
-        loadConfig()
+        runCatching {
+            loadHistory()
+            loadDirectories()
+            loadConfig()
+        }.onFailure { e -> println(e.stackTraceToString()) }
     }
 }
 
@@ -51,10 +53,9 @@ class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
     private val folder by argument(help = "Standard folder to sort").optional()
     private val custom by option("--custom", help = "Sort files in a manually specified path")
     private val pinned by option("--pinned", help = "Sort files in a pinned directory (by name)")
-    private val dryRun by option(
-        "--dryrun",
-        help = "Shows what files get moved, without moving"
-    ).flag()
+    private val dryRun by option("--dryrun", help = "Shows what files get moved, without moving").flag()
+
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
 
     override fun run() {
         if (listOfNotNull(folder, custom, pinned).size != 1) {
@@ -100,24 +101,50 @@ class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
             }
         }
 
-        if (dryRun) {
+if (dryRun) {
             echo("On Dry Run!!")
-            ensureFolderDestinationDryRun(selectedDirectory, sortingRules)
-            sortingDryRun(selectedDirectory, sortingRules)
-            return
+            runCatching {
+                ensureFolderDestinationDryRun(selectedDirectory, sortingRules)
+                sortingDryRun(selectedDirectory, sortingRules)
+                return
+            }.onFailure {
+                e -> if (debug) {
+                    echo(e.stackTraceToString())
+                } else {
+                    echo("Error: ${e.message}", err = true)
+                }
+            }
         }
 
-        ensureFolderDestination(selectedDirectory, sortingRules)
-        sortingLogic(selectedDirectory, sortingRules)
+        runCatching {
+            ensureFolderDestination(selectedDirectory, sortingRules)
+            sortingLogic(selectedDirectory, sortingRules)
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
+        }
     }
 }
 
 class Folders : CliktCommand(name = "folders", help = "Shows standard folders") {
-    override fun run() {
-        val folders = rules.standardFolders(homeDirectory)
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
 
-        for ((index, folderName) in folders.keys.withIndex()) {
-            echo("${index + 1}. :: $folderName")
+    override fun run() {
+        runCatching {
+            val folders = rules.standardFolders(homeDirectory)
+
+            for ((index, folderName) in folders.keys.withIndex()) {
+                echo("${index + 1}. :: $folderName")
+            }
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
         }
     }
 }
@@ -128,33 +155,43 @@ class Undo : CliktCommand(name = "undo", help = "Undo sort sessions") {
         help = "Shows what files get moved, without moving"
     ).flag()
 
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
+
     override fun run() {
-        val history = loadHistory()
+        runCatching {
+            val history = loadHistory()
 
-        if (history.sessions.isEmpty()) {
-            echo("No sessions to undo"); return
+            if (history.sessions.isEmpty()) {
+                echo("No sessions to undo"); return
+            }
+
+            echo("Current sessions (0 - ${history.sessions.size}):")
+            for ((i, session) in history.sessions.withIndex()) {
+                echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
+            }
+
+            echo("Select the respective index: ")
+            val input = readlnOrNull()?.toIntOrNull() ?: run { echo("Input is either empty or not a number"); return }
+
+            if (input !in 1..history.sessions.size) {
+                echo("IndexError: Input is out the index range. Please pick a number from 1 to ${history.sessions.size}")
+                return
+            }
+
+            if (dryRun) {
+                echo("On Dry Run!!")
+                undoLogicDryRun(input = input)
+                return
+            }
+
+            undoLogic(input = input)
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
         }
-
-        echo("Current sessions (0 - ${history.sessions.size}):")
-        for ((i, session) in history.sessions.withIndex()) {
-            echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
-        }
-
-        echo("Select the respective index: ")
-        val input = readlnOrNull()?.toIntOrNull() ?: run { echo("Input is either empty or not a number"); return }
-
-        if (input !in 1..history.sessions.size) {
-            echo("IndexError: Input is out the index range. Please pick a number from 1 to ${history.sessions.size}")
-            return
-        }
-
-        if (dryRun) {
-            echo("On Dry Run!!")
-            undoLogicDryRun(input = input)
-            return
-        }
-
-        undoLogic(input = input)
     }
 }
 
@@ -171,15 +208,25 @@ class Dirs : CliktCommand(name = "dirs", help = "Manage pinned directories") {
 }
 
 class DirsList : CliktCommand(name = "list", help = "Shows user added directories") {
-    override fun run() {
-        loadDirectories()
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
 
-        if (config.addedDirectories.isNotEmpty()) {
-            for ((index, entry) in config.addedDirectories.entries.withIndex()) {
-                echo("${index + 1}. ~ ${entry.key} ~ ${entry.value}")
+    override fun run() {
+        runCatching {
+            loadDirectories()
+
+            if (config.addedDirectories.isNotEmpty()) {
+                for ((index, entry) in config.addedDirectories.entries.withIndex()) {
+                    echo("${index + 1}. ~ ${entry.key} ~ ${entry.value}")
+                }
+            } else {
+                echo("No added directories")
             }
-        } else {
-            echo("No added directories")
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
         }
     }
 }
@@ -187,35 +234,53 @@ class DirsList : CliktCommand(name = "list", help = "Shows user added directorie
 class DirsAdd : CliktCommand(name = "add", help = "Adds a directory") {
     private val pathName by argument()
     private val pathDirectory by argument()
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
 
     override fun run() {
-        if (!Path.of(pathDirectory).isDirectory()) {
-            echo("$pathDirectory is not a valid directory")
-            return
+        runCatching {
+            if (!Path.of(pathDirectory).isDirectory()) {
+                echo("$pathDirectory is not a valid directory")
+                return
+            }
+
+            config.addedDirectories[pathName] = pathDirectory
+
+            if (config.addedDirectories[pathName] != pathDirectory) {
+                echo("$pathName did not get added properly"); return
+            }
+
+            echo("Added ~ $pathName ~ ($pathDirectory)")
+            config.saveDirectories()
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
         }
-
-        config.addedDirectories[pathName] = pathDirectory
-
-        if (config.addedDirectories[pathName] != pathDirectory) {
-            echo("$pathName did not get added properly"); return
-        }
-
-        echo("Added ~ $pathName ~ ($pathDirectory)")
-        config.saveDirectories()
     }
 }
 
 class DirsRemove : CliktCommand(name = "remove", help = "Removes a directory") {
     private val targetDirectory by argument()
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
 
     override fun run() {
-        if (targetDirectory !in config.addedDirectories) {
-            echo("$targetDirectory is not in added directories...")
-            return
+        runCatching {
+            if (targetDirectory !in config.addedDirectories) {
+                echo("$targetDirectory is not in added directories...")
+                return
+            }
+            echo("removing $targetDirectory...")
+            config.addedDirectories.remove(targetDirectory)
+            config.saveDirectories()
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
         }
-        echo("removing $targetDirectory...")
-        config.addedDirectories.remove(targetDirectory)
-        config.saveDirectories()
     }
 }
 
@@ -232,31 +297,53 @@ class History : CliktCommand(name = "history", help = "Manage history") {
 }
 
 class HistoryShow : CliktCommand(name = "show", help = "Shows full history") {
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
+
     override fun run() {
-        val history = loadHistory()
+        runCatching {
+            val history = loadHistory()
 
-        if (history.sessions.isEmpty()) {
-            echo("Sessions are empty!!")
-            return
-        }
+            if (history.sessions.isEmpty()) {
+                echo("Sessions are empty!!")
+                return
+            }
 
-        echo("Current sessions (0 - ${history.sessions.size}):")
-        for ((i, session) in history.sessions.withIndex()) {
-            echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
+            echo("Current sessions (0 - ${history.sessions.size}):")
+            for ((i, session) in history.sessions.withIndex()) {
+                echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
+            }
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
         }
     }
 }
 
 class HistoryClear : CliktCommand(name = "clear", help = "Clears history") {
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
+
     override fun run() {
-        clearHistory()
-        saveHistory()
+        runCatching {
+            clearHistory()
+            saveHistory()
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
+        }
     }
 }
 
 class HistoryRemove : CliktCommand(name = "remove", help = "Removes a session in history") {
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
+
     override fun run() {
-        val result = runCatching {
+        runCatching {
             val history = loadHistory()
 
             if (history.sessions.isNotEmpty()) {
@@ -271,9 +358,13 @@ class HistoryRemove : CliktCommand(name = "remove", help = "Removes a session in
             } else {
                 echo("No history sessions to remove")
             }
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
         }
-        result.onSuccess { echo("Success") }
-            .onFailure { echo("Failed to remove, Try again") }
     }
 }
 
@@ -301,19 +392,38 @@ class ConfigDuplicates : CliktCommand(name = "duplicates", help = "Sets duplicat
 }
 
 class DuplicateMode(private val mode: String) : CliktCommand(name = mode, help = "Duplicate mode: $mode") {
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
+
     override fun run() {
-        config.configurations["duplicate mode"] = mode
-        echo("Duplicate Mode set to $mode")
-        saveConfig()
+        runCatching {
+            config.configurations["duplicate mode"] = mode
+            echo("Duplicate Mode set to $mode")
+            saveConfig()
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
+        }
     }
 }
 
 class ConfigRemoveSessionAfterUndo : CliktCommand(name = "remove-session-after-undo", help = "Removes a session after an undo") {
     private val enabled by argument().boolean()
+    private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
 
     override fun run() {
-        config.configurations["remove session after redo"] = enabled.toString()
-        echo("Remove session after undo set to $enabled")
-        saveConfig()
+        runCatching {
+            config.configurations["remove session after redo"] = enabled.toString()
+            echo("Remove session after undo set to $enabled")
+            saveConfig()
+        }.onFailure {
+            e -> if (debug) {
+                echo(e.stackTraceToString())
+            } else {
+                echo("Error: ${e.message}", err = true)
+            }
+        }
     }
 }

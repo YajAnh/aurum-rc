@@ -1,0 +1,4 @@
+{
+    "duplicate mode": "rename",
+    "remove session after redo": "true"
+}
