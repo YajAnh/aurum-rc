@@ -228,20 +228,17 @@ class Undo : CliktCommand(help = "Undo sort sessions") {
             echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
         }
 
-            echo("Select the respective index: ")
-            val input = readlnOrNull()?.toIntOrNull()
-            if (dryRun) {
-                echo("On Dry Run!!")
-                undoLogicDryRun(input = input)
-            }
+        echo("Select the respective index: ")
+        val input = readlnOrNull()?.toIntOrNull() ?: run{ echo("Input is either empty or not a number"); return }
+        if (dryRun) {
+            echo("On Dry Run!!")
+            undoLogicDryRun(input = input)
+        }
 
-            if (input == null) {
-                echo("Input is either empty or not a number"); return
-            }
-            if (input !in 1..history.sessions.size) {
-                echo("IndexError: Input is out the index range. Please pick a number from 1 to ${history.sessions.size}")
-            }
-            undoLogic(input = input)
+        if (input !in 1..history.sessions.size) {
+            echo("IndexError: Input is out the index range. Please pick a number from 1 to ${history.sessions.size}")
+        }
+        undoLogic(input = input)
     }
 }
 
