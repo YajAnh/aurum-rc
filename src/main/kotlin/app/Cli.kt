@@ -206,6 +206,52 @@ class ModSet : CliktCommand(name = "mod", help = "None") {
     override fun run() = Unit
 }
 
+class Rules : CliktCommand(name = "ru", help = "User defined rules") {
+    init {
+        SortingRules()
+    }
+
+    override fun run() = Unit
+}
+
+class SortingRules : CliktCommand(name = "sr", help = "Add your own folder destination and target extensions") {
+    private val sortingDestination by argument()
+    private val targetExtensions by argument()
+
+    override fun run() {
+        if (!targetExtensions.contains(Regex("[,\\s]"))) {
+            echo("Error: extensions must be separated by commas or spaces.")
+            return
+        }
+
+        val targetSplit = targetExtensions
+            .split(Regex("[,\\s]+"))
+            .filter { it.isNotBlank() }
+
+        val entry = mapOf(
+            sortingDestination to targetSplit
+        )
+
+        echo("Name: $sortingDestination")
+        echo("Target extensions: $targetSplit")
+        echo("Confirm? (Enter to confirm, 'exit' to exit"); val input = readlnOrNull()
+
+        if (input == null) {
+            sortingRules.putAll(entry)
+
+            for ((key, value) in sortingRules){
+                if (key == sortingDestination && value == targetSplit) {
+                    echo("[ADDED] -> $key ~ $value")
+                    break
+                }
+                echo("$key ~ $value")
+            }
+        }
+        if (input == "exit") return
+    }
+}
+
+
 class RemoveSessionAfterRedo : CliktCommand(name = "rsar", help = "Remove session after a redo session") {
     private val enabled by argument().boolean()
 
