@@ -1,5 +1,3 @@
-@file:JvmName("HandleDuplicatesKt")
-
 package sorting
 
 import org.slf4j.LoggerFactory

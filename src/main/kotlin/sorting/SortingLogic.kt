@@ -49,6 +49,9 @@ fun sortingLogic(selectedDirectory: Path, sortingRules: Map<String, List<String>
                 logger.error("Failed to process ${filePath.fileName}: ${e.message}")
             }
         }
+    }
+
+    if (moves.isNotEmpty()) {
         recordHistory(selectedDirectory, moves)
     }
 }

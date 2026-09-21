@@ -3,24 +3,26 @@ package config
 import kotlin.io.path.Path
 import kotlinx.serialization.json.Json
 import services.History
-import services.historyPath
+import services.HistoryStore
 import java.nio.file.Files
-import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-private val json = Json {
-    prettyPrint = true
-    ignoreUnknownKeys = true
-}
+private val dataDirectory = Path("").toAbsolutePath().resolve("data")
+private val configPath = dataDirectory.resolve("Config.json")
+private val directoriesPath = dataDirectory.resolve("Directories.json")
+private val defaultConfigurations = mapOf(
+    "duplicate mode" to "rename",
+    "remove session after redo" to "false"
+)
 
 fun loadConfig() {
-    val json = Json.decodeFromString<Map<String, String>>(
-        Path("")
-            .resolve("data")
-            .resolve("Config.json")
-            .readText()
-    )
-     configurations.putAll(json)
+    configurations.clear()
+    configurations.putAll(defaultConfigurations)
+    if (Files.exists(configPath)) {
+        configurations.putAll(Json.decodeFromString(Files.readString(configPath)))
+    } else {
+        saveConfig()
+    }
 
 }
 
@@ -29,22 +31,17 @@ fun saveConfig() {
         prettyPrint = true
     }
 
-    Path("").toAbsolutePath()
-        .resolve("data")
-        .resolve("Config.json").writeText(
-        json.encodeToString(configurations)
-    )
+    Files.createDirectories(dataDirectory)
+    configPath.writeText(json.encodeToString(configurations))
 }
 
 fun loadDirectories(){
-    val json = Json.decodeFromString<Map<String, String>>(
-        Path("").toAbsolutePath()
-            .resolve("data")
-            .resolve("Directories.json")
-            .readText()
-    )
-
-    addedDirectories.putAll(json)
+    addedDirectories.clear()
+    if (Files.exists(directoriesPath)) {
+        addedDirectories.putAll(Json.decodeFromString(Files.readString(directoriesPath)))
+    } else {
+        saveDirectories()
+    }
 }
 
 fun saveDirectories(){
@@ -52,23 +49,8 @@ fun saveDirectories(){
         prettyPrint = true
     }
 
-    Path("").toAbsolutePath()
-        .resolve("data")
-        .resolve("Directories.json")
-        .writeText(
-        json.encodeToString(addedDirectories)
-    )
+    Files.createDirectories(dataDirectory)
+    directoriesPath.writeText(json.encodeToString(addedDirectories))
 }
 
-var history = loadHistory()
-    private set
-
-fun loadHistory(): History =
-    if (Files.exists(historyPath))
-        json.decodeFromString(Files.readString(historyPath))
-    else History()
-
-fun saveHistory() {
-    Files.createDirectories(historyPath.parent)
-    Files.writeString(historyPath, json.encodeToString(history))
-}
+fun loadHistory(): History = HistoryStore.load()

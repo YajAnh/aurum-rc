@@ -1,6 +1,6 @@
 package app
 
-import main
+import com.github.ajalt.clikt.core.UsageError
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("Cmd")
@@ -18,11 +18,14 @@ fun cmdMain() {
 
         val args = parseArgs(input)
         val result = runCatching {
-            App().main(args)
+            App().parse(args)
         }
         result.onSuccess { continue }
-            .onFailure { exception ->  val errorMessage = exception.message ?: "Unknown error"
-            logger.warn("Error: $errorMessage")
+            .onFailure { exception ->
+                if (exception !is UsageError) {
+                    val errorMessage = exception.message ?: "Unknown error"
+                    logger.warn("Error: $errorMessage")
+                }
             }
     }
 }

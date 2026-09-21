@@ -15,10 +15,10 @@ import config.loadConfig
 import config.loadDirectories
 import config.loadHistory
 import config.saveConfig
-import config.saveHistory
 import sorting.ensureFolderDestination
 import sorting.sortingLogic
 import services.clearHistory
+import services.formatSessionTimestamp
 import services.undoLogic
 import services.undoLogicDryRun
 import sorting.ensureFolderDestinationDryRun
@@ -50,29 +50,19 @@ class App : CliktCommand(name = "aurum-rc") {
 }
 
 class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
-    private val folder by argument(help = "Standard folder to sort").optional()
-    private val custom by option("--custom", help = "Sort files in a manually specified path")
+    private val folder by argument(help = "Standard folder name or path to sort").optional()
     private val pinned by option("--pinned", help = "Sort files in a pinned directory (by name)")
     private val dryRun by option("--dryrun", help = "Shows what files get moved, without moving").flag()
 
     private val debug by option("--debug", help = "Shows stack traces for debugging").flag()
 
     override fun run() {
-        if (listOfNotNull(folder, custom, pinned).size != 1) {
-            echo("Provide exactly one source: a standard <folder>, --custom <path>, or --pinned <name>")
+        if (listOfNotNull(folder, pinned).size != 1) {
+            echo("Provide exactly one source: a standard folder, a directory path, or --pinned <name>")
             return
         }
 
         val selectedDirectory: Path = when {
-            custom != null -> {
-                val path = Path.of(custom!!)
-                if (!Files.isDirectory(path)) {
-                    echo("$path is not a valid directory")
-                    return
-                }
-                path
-            }
-
             pinned != null -> {
                 val name = pinned!!.replaceFirstChar { it.titlecase() }
                 val path = config.addedDirectories[name]
@@ -89,15 +79,12 @@ class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
             else -> {
                 val folders = rules.standardFolders(homeDirectory)
                 val name = folder!!.replaceFirstChar { it.titlecase() }
-                val path = folders[name]
-                if (path == null) {
-                    echo("Invalid folder: $folder. Available folders:")
-                    for ((index, folderName) in folders.keys.withIndex()) {
-                        echo("   ${index + 1}. :: $folderName")
-                    }
+                val path = folders[name]?.let(Path::of) ?: Path.of(folder!!)
+                if (!Files.isDirectory(path)) {
+                    echo("$path is not a valid directory")
                     return
                 }
-                Path.of(path)
+                path
             }
         }
 
@@ -165,9 +152,9 @@ class Undo : CliktCommand(name = "undo", help = "Undo sort sessions") {
                 echo("No sessions to undo"); return
             }
 
-            echo("Current sessions (0 - ${history.sessions.size}):")
+            echo("Current sessions (1 - ${history.sessions.size}):")
             for ((i, session) in history.sessions.withIndex()) {
-                echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
+                echo("   ${i + 1}. ${formatSessionTimestamp(session.timestamp)} - ${session.directory}")
             }
 
             echo("Select the respective index: ")
@@ -308,9 +295,22 @@ class HistoryShow : CliktCommand(name = "show", help = "Shows full history") {
                 return
             }
 
-            echo("Current sessions (0 - ${history.sessions.size}):")
+            echo("Current sessions (1 - ${history.sessions.size}):")
             for ((i, session) in history.sessions.withIndex()) {
-                echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
+                echo("   ${i + 1}. ${formatSessionTimestamp(session.timestamp)} - ${session.directory}")
+                echo("      Preview...")
+
+                val moveEntries = history.sessions[i].moves
+                var counter = 0
+
+                for ((index, preview) in moveEntries.withIndex()) {
+                    counter += 1
+                    if (counter > 3) {
+                        echo("          ... and ${moveEntries.size} more file(s)....")
+                        break
+                    }
+                    echo("       ${index + 1}. ${preview["original path"]} -> ${preview["new path"]}")
+                }
             }
         }.onFailure {
             e -> if (debug) {
@@ -328,7 +328,6 @@ class HistoryClear : CliktCommand(name = "clear", help = "Clears history") {
     override fun run() {
         runCatching {
             clearHistory()
-            saveHistory()
         }.onFailure {
             e -> if (debug) {
                 echo(e.stackTraceToString())
@@ -347,9 +346,9 @@ class HistoryRemove : CliktCommand(name = "remove", help = "Removes a session in
             val history = loadHistory()
 
             if (history.sessions.isNotEmpty()) {
-                echo("Current sessions (0 - ${history.sessions.size}):")
+                echo("Current sessions (1 - ${history.sessions.size}):")
                 for ((i, session) in history.sessions.withIndex()) {
-                    echo("   ${i + 1}. ${session.timestamp} - ${session.directory}")
+                    echo("   ${i + 1}. ${formatSessionTimestamp(session.timestamp)} - ${session.directory}")
                 }
                 echo()
 

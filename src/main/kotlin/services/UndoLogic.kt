@@ -1,8 +1,6 @@
 package services
 
 import config.loadConfig
-import config.loadHistory
-import config.saveHistory
 import kotlinx.serialization.json.JsonPrimitive
 import sorting.handleDuplicates
 import java.nio.file.Path
@@ -15,7 +13,7 @@ import sorting.duplicatesDryRun
 private val logger = LoggerFactory.getLogger("UndoLogic")
 
 fun undoLogic(input: Int) {
-    val history = loadHistory()
+    val history = HistoryStore.load()
     if (input < 1 || input > history.sessions.size) {
         logger.warn("Invalid index: $input (valid: 1-${history.sessions.size})")
         return
@@ -53,13 +51,13 @@ fun undoLogic(input: Int) {
         history.sessions.removeAt(input - 1)
     }
 
-    saveHistory()
+    HistoryStore.save(history)
 }
 
 fun undoLogicDryRun(input: Int) {
-    val history = loadHistory()
+    val history = HistoryStore.load()
     if (input < 1 || input > history.sessions.size) {
-        logger.warn("Invalid index: $input (valid: 1-${history.sessions.size})")
+        logger.warn("Preview ~ Invalid index: $input (valid: 1-${history.sessions.size})")
         return
     }
 
@@ -80,13 +78,13 @@ fun undoLogicDryRun(input: Int) {
         val original = Path.of(originalPath)
 
         if (!Files.exists(currentLocation)) {
-            logger.warn("Preview Skipped: file no longer exists -> $currentLocation")
+            logger.warn("Preview ~ Skipped: file no longer exists -> $currentLocation")
             continue
         }
 
         Files.createDirectories(original.parent)
         duplicatesDryRun(original.parent, currentLocation)
         iterator.set(move + ("undo" to JsonPrimitive(true)))
-        logger.info("Preview Undo: ${original.fileName} <- $currentLocation")
+        logger.info("Preview ~ Undo: ${original.fileName} <- $currentLocation")
     }
 }

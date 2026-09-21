@@ -1,6 +1,7 @@
 package services
 
 import kotlinx.datetime.*
+import kotlinx.datetime.format.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -9,7 +10,17 @@ import java.nio.file.Path
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("HandleHistory")
-
+private val sessionTimestampFormat = LocalDateTime.Format {
+    date(LocalDate.Formats.ISO)
+    char(' ')
+    time(LocalTime.Format {
+        hour()
+        char(':')
+        minute()
+        char(':')
+        second()
+    })
+}
 
 val historyPath: Path = Path.of("").toAbsolutePath()
     .resolve("data")
@@ -27,73 +38,57 @@ data class HistoryEntry(
     val moves: MutableList<Map<String, JsonElement>>
 )
 
-fun recordHistory(selectedDirectory: Path, moves: MutableList<Map<String, JsonElement>>){
+fun formatSessionTimestamp(timestamp: String): String =
+    Instant.parse(timestamp)
+        .toLocalDateTime(TimeZone.currentSystemDefault())
+        .format(sessionTimestampFormat)
 
-    val json = Json {
+object HistoryStore {
+    private val json = Json {
         prettyPrint = true
         ignoreUnknownKeys = true
     }
 
-    var history = History()
+    fun load(): History =
+        if (Files.exists(historyPath)) {
+            json.decodeFromString(Files.readString(historyPath))
+        } else {
+            History()
+        }
 
-    if (Files.exists(historyPath)) {
-        val contents = Files.readString(historyPath)
-        history = json.decodeFromString<History>(contents)
+    fun save(history: History) {
+        Files.createDirectories(historyPath.parent)
+        Files.writeString(historyPath, json.encodeToString(history))
     }
 
-    val entry = HistoryEntry(
-        timestamp = Clock.System.now().toString(),
-        directory = selectedDirectory.toString(),
-        moves = moves
-    )
+    fun record(entry: HistoryEntry) {
+        val history = load()
+        history.sessions.add(entry)
+        save(history)
+    }
+}
 
-    history.sessions.add(entry)
-    Files.createDirectories(historyPath.parent)
-
-    Files.writeString(
-        historyPath,
-        json.encodeToString(history)
+fun recordHistory(selectedDirectory: Path, moves: MutableList<Map<String, JsonElement>>) {
+    HistoryStore.record(
+        HistoryEntry(
+            timestamp = Clock.System.now().toString(),
+            directory = selectedDirectory.toString(),
+            moves = moves
+        )
     )
 }
 
 fun clearHistory() {
-    Files.createDirectories(historyPath.parent)
-
-    Files.writeString(
-        historyPath,
-        Json.encodeToString(History())
-    )
+    HistoryStore.save(History())
 }
 
 fun removeHistorySession(index: Int) {
-    val json = Json {
-        prettyPrint = true
-        ignoreUnknownKeys = true
-    }
-
-    if (!Files.exists(historyPath)) return
-
-    val contents = Files.readString(historyPath)
-    val history = json.decodeFromString<History>(contents)
-
-    // Check if index is valid
-    if (index >= 0 && index < history.sessions.size) {
-        history.sessions.removeAt(index)
-
-        Files.createDirectories(historyPath.parent)
-        Files.writeString(
-            historyPath,
-            json.encodeToString(history)
-        )
-        logger.info("Session at index $index removed successfully")
+    val history = HistoryStore.load()
+    if (index in 1..history.sessions.size) {
+        history.sessions.removeAt(index - 1)
+        HistoryStore.save(history)
+        logger.info("Session $index removed successfully")
     } else {
-        logger.warn("Invalid index: $index. History has ${history.sessions.size} sessions (0-${history.sessions.size - 1})")
+        logger.warn("Invalid index: $index. History has ${history.sessions.size} sessions (1-${history.sessions.size})")
     }
 }
-
-
-
-
-
-
-
