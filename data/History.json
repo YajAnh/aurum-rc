@@ -1,15 +1,1 @@
-{
-    "sessions": [
-        {
-            "timestamp": "2026-09-19T15:10:46.491345300Z",
-            "directory": "C:\\Users\\hp\\Desktop",
-            "moves": [
-                {
-                    "original path": "C:\\Users\\hp\\Desktop\\New folder (3).zip",
-                    "new path": "C:\\Users\\hp\\Desktop\\SortedCompressedFile\\New folder (3).zip",
-                    "undo": false
-                }
-            ]
-        }
-    ]
-}
+{}

@@ -57,36 +57,54 @@ class App : CliktCommand(name = "aurum-rc") {
 
 class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
     private val folder by argument(help = "Standard folder name or path to sort").optional()
-    //priority field will be chronological, depending on option is entered first and so on
 
     private val extensions by option("--extensions", help = "Add sorting rule to sort extensions")
         .convert {
-            ExtensionsData(it)
+            val parsedExtensions = it.split(',')
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .map(String::lowercase)
+
+            require(parsedExtensions.isNotEmpty()) {
+                "--extensions requires at least one extension"
+            }
+
+            ExtensionsData(parsedExtensions.joinToString(","))
         }
     // --extensions jpg,jpeg,png,gif,webm
     // --extensions mp4,mov
 
 
     private val date by option("--date", help = "Add sorting rule to sort depending on the date")
-        .convert {it ->
-            val dateInputParsed = it.trim().split(Regex("\\s+"))
+        .convert { value ->
+            val dateInputParsed = value.trim().split(Regex("\\s+"))
+            require(dateInputParsed.isNotEmpty() && dateInputParsed.first().isNotBlank()) {
+                "--date requires: <created|modified> <date-range> or <age> <older|newer> <duration>"
+            }
+
             val dateOption = when (dateInputParsed[0]) {
                 "created" -> DateDataGroup.DateOptionEnum.CREATED
                 "modified" -> DateDataGroup.DateOptionEnum.MODIFIED
                 "age" -> DateDataGroup.DateOptionEnum.AGE
-                else -> throw IllegalArgumentException("Unexpected option type ${dateInputParsed[0]}")
+                else -> throw IllegalArgumentException("Unexpected date option '${dateInputParsed[0]}'")
             }
 
             if (dateOption == DateDataGroup.DateOptionEnum.AGE) {
+                require(dateInputParsed.size == 3) {
+                    "--date age requires: age <older|newer> <duration>"
+                }
+
                 val ageComparison = when (dateInputParsed[1]) {
                         "older" -> DateDataGroup.AgeEnum.OLDER
                         "newer" -> DateDataGroup.AgeEnum.NEWER
-                        else -> throw IllegalArgumentException("Unexpected age comparison type ${dateInputParsed[1]}")
+                        else -> throw IllegalArgumentException("Unexpected age comparison '${dateInputParsed[1]}'")
                     }
 
-
-
                 val ageDateEntries = dateInputParsed[2].split(":")
+                require(ageDateEntries.all(String::isNotBlank)) {
+                    "--date age duration must not contain empty values"
+                }
+
                 return@convert DateDataGroup.AgeData(
                     dateOption,
                     ageComparison,
@@ -94,7 +112,15 @@ class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
                 )
             }
 
+            require(dateInputParsed.size == 2) {
+                "--date requires: <created|modified> <date-range>"
+            }
+
             val dateSections = dateInputParsed[1].split(":")
+            require(dateSections.all(String::isNotBlank)) {
+                "--date range must not contain empty values"
+            }
+
             DateDataGroup.DateData(
                 dateOption,
                 dateSections.map { LocalDate.parse(it) }
@@ -102,12 +128,12 @@ class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
 
         }
     // --date created YYYY-MM-DD:YYYY-MM-DD
-    // --date modified
-    // (YYYY/MM/DD)  age older/newer 1m:10d (older == files older than 1m and 10d, newer == files newer than 1m and 10d)
+    // --date modified YYYY-MM-DD
+    // --date age older/newer 1m:10d
 
     private val nameLength by option("--length", help = "Add sorting rule to sort depending on the file name length")
-        .convert { it ->
-            val nameLengthInputParse = it.trim().split(Regex("\\s+"))
+        .convert { value ->
+            val nameLengthInputParse = value.trim().split(Regex("\\s+"))
 
             require(nameLengthInputParse.size == 2) {
                 "--length requires: <less|greater|range|exact> <value>"
@@ -118,64 +144,100 @@ class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
                     "greater" -> NameLengthDataGroup.NameLengthComparisonStatementsEnum.GREATER
                     "range" -> NameLengthDataGroup.NameLengthComparisonStatementsEnum.RANGE
                     "exact" -> NameLengthDataGroup.NameLengthComparisonStatementsEnum.EXACT
-                    else -> throw IllegalArgumentException("Unexpected name length type ${nameLengthInputParse[0]}")
+                    else -> throw IllegalArgumentException("Unexpected name length option '${nameLengthInputParse[0]}'")
                 }
 
-            val ranges = if (nameLengthInputParse[1].contains("-")) {
-                nameLengthInputParse[1].split("-").map {
-                    it.toInt()
-                }
-            } else {
-                listOf(nameLengthInputParse[1].toInt())
+            val ranges = nameLengthInputParse[1].split('-').map { entry ->
+                entry.toIntOrNull()?.also {
+                    require(it >= 0) { "Name lengths must not be negative" }
+                } ?: throw IllegalArgumentException("Invalid name length '$entry'")
             }
+
+            require(
+                when (nameLengthOption) {
+                    NameLengthDataGroup.NameLengthComparisonStatementsEnum.RANGE -> ranges.size == 2
+                    else -> ranges.size == 1
+                }
+            ) {
+                if (nameLengthOption == NameLengthDataGroup.NameLengthComparisonStatementsEnum.RANGE) {
+                    "--length range requires <minimum>-<maximum>"
+                } else {
+                    "--length ${nameLengthInputParse[0]} requires one value"
+                }
+            }
+
+            if (nameLengthOption == NameLengthDataGroup.NameLengthComparisonStatementsEnum.RANGE) {
+                require(ranges[0] <= ranges[1]) {
+                    "--length range requires minimum <= maximum"
+                }
+            }
+
             NameLengthDataGroup.NameLengthData(nameLengthOption, ranges)
         }
     // --length less 10 ~ LESS THAN
     // --length greater 5 ~ GREATER THAN
     // --length range 10-5 ~ RANGE
-    // --length 10 EXACT
+    // --length exact 10
 
     private val size by option("--size", help = "Add sorting rule to sort depending on size")
-        .convert {
-            val sizeInputParsed = it.trim().split(Regex("\\s+"))
-            if (sizeInputParsed[0] !in listOf("less", "greater")) {
-                val getSize = sizeInputParsed[0].split("-")
+        .convert { value ->
+            val sizeInputParsed = value.trim().split(Regex("\\s+"))
+            require(sizeInputParsed.size == 1 || sizeInputParsed.size == 2) {
+                "--size requires: <minimum>-<maximum>, less <size>, or greater <size>"
+            }
 
-                SizeDataGroup.Range(getSize)
+            if (sizeInputParsed[0] != "less" && sizeInputParsed[0] != "greater") {
+                val range = sizeInputParsed[0].split("-")
+                require(range.size == 2 && range.all(String::isNotBlank)) {
+                    "--size range requires <minimum>-<maximum>"
+                }
+
+                SizeDataGroup.Range(range)
                 return@convert
             }
 
-            val comparisonStatement = run {
-                when (sizeInputParsed[0]) {
-                    "less" -> SizeDataGroup.SizeComparisonStatementsEnum.LESS
-                    "greater" -> SizeDataGroup.SizeComparisonStatementsEnum.GREATER
-                    else -> throw error("Unreachable")
-                }
+            require(sizeInputParsed.size == 2 && sizeInputParsed[1].isNotBlank()) {
+                "--size ${sizeInputParsed[0]} requires a value"
             }
-            val getSize = sizeInputParsed[1]
-            SizeDataGroup.CompareData(comparisonStatement, getSize)
-            return@convert
+
+            val comparisonStatement = when (sizeInputParsed[0]) {
+                "less" -> SizeDataGroup.SizeComparisonStatementsEnum.LESS
+                "greater" -> SizeDataGroup.SizeComparisonStatementsEnum.GREATER
+                else -> error("Unreachable")
+            }
+            SizeDataGroup.CompareData(comparisonStatement, sizeInputParsed[1])
         }
     // --size 1mb-100mb ~ less 100mb ~ greater 50mb
 
     private val pattern by option("--pattern", help = "Add sorting rule to sort depending on prefixes/pattern that matches a file")
-        .convert {
-            val patternInputParsed = it.trim().split(Regex("\\s+"))
-            val patterns = patternInputParsed[0].split(",")
+        .convert { value ->
+            val patternInputParsed = value.trim().split(Regex("\\s+"))
+            require(patternInputParsed.size == 1 && patternInputParsed[0].isNotBlank()) {
+                "--pattern requires one or more comma-separated patterns"
+            }
+
+            val patterns = patternInputParsed[0].split(',')
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+            require(patterns.isNotEmpty()) {
+                "--pattern requires one or more comma-separated patterns"
+            }
+
             PatternData(patterns)
         }
     // --pattern screenshot*,IMG*
 
     private val destination by option("--destination", help = "Custom destination of the file at instance")
-        .convert {
-            val destinationInputParsed = it.trim().split(Regex("\\s+"))
-            val name = destinationInputParsed[0]
-            runCatching {
-                val path = Path.of(destinationInputParsed[1])
-                Destination(name, path)
-            }.getOrThrow()
+        .convert { value ->
+            val destinationInputParsed = value.trim().split(Regex("\\s+"), limit = 2)
+            require(destinationInputParsed.size == 2 &&
+                destinationInputParsed[0].isNotBlank() &&
+                destinationInputParsed[1].isNotBlank()
+            ) {
+                "--destination requires: <name> <path>"
+            }
 
-
+            Destination(destinationInputParsed[0], Path.of(destinationInputParsed[1]))
         }
     // --destination <Name> <Path>
 
@@ -216,7 +278,7 @@ class Sort : CliktCommand(name = "sort", help = "Sort files in a directory") {
             }
         }
 
-if (dryRun) {
+        if (dryRun) {
             echo("On Dry Run!!")
             runCatching {
                 ensureFolderDestinationDryRun(selectedDirectory, sortingRules)
